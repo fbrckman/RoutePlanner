@@ -1,6 +1,6 @@
-@import url("../node_modules/react-datetime/css/react-datetime.css"); 
-@import url("../node_modules/leaflet/dist/leaflet.css");
-@import url("../node_modules/semantic-ui-css/semantic.css");
+@import url("../../node_modules/react-datetime/css/react-datetime.css");
+@import url("../../node_modules/leaflet/dist/leaflet.css");
+@import url("../../node_modules/semantic-ui-css/semantic.css");
 
 .App {
   text-align: center;
@@ -30,5 +30,3 @@
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
-
-#mapid { height: 180px; }
