@@ -1,4 +1,1 @@
-@import url("../../node_modules/leaflet.markercluster/dist/MarkerCluster.css");
-@import url("../../node_modules/leaflet.markercluster/dist/MarkerCluster.Default.css");
-
 #mapid { height: 70vh; }
