@@ -12,15 +12,23 @@ class InteractiveMap extends Component {
   departureStop = {id: "", newMarker: undefined, originalMarker: undefined};
   arrivalStop = {id: "", newMarker: undefined, originalMarker: undefined};
 
-  stations = {};
-  markers = {};
+  // stations = {};
+  // markers = {};
 
   markerLayer;
   map;
 
+  constructor() {
+    super();
+    this.state = {
+      stations: {},
+      markers: {},
+    };
+  }
+
   componentDidMount() {
     const self = this;
-    const stations = self.stations, markers = self.markers;
+    const {stations, markers} = this.state;
 
     const provinces = [
       "https://belgium.linkedconnections.org/delijn/Oost-Vlaanderen/stops",
@@ -91,7 +99,7 @@ class InteractiveMap extends Component {
 
   handleClick(key) {
     const map = this.map;
-    const stations = this.stations;
+    const {stations, markers} = this.state;
     const redIcon = L.icon({
       iconUrl: 'https://linkedconnections.org/images/marker-icon-end.png',
       iconRetinaUrl: 'https://linkedconnections.org/images/marker-icon-2x-end.png',
@@ -111,7 +119,7 @@ class InteractiveMap extends Component {
       this.departureStop = {
         id: key,
         newMarker: L.marker([station.latitude, station.longitude]).setIcon(greenIcon).addTo(map),
-        originalMarker: this.markers[key]
+        originalMarker: markers[key]
       };
       this.departureStop.newMarker.on("click", () => this.deselect(key));
 
@@ -126,7 +134,7 @@ class InteractiveMap extends Component {
       this.arrivalStop = {
         id: key,
         newMarker: L.marker([station.latitude, station.longitude]).setIcon(redIcon).addTo(map),
-        originalMarker: this.markers[key]
+        originalMarker: markers[key]
       };
       this.arrivalStop.newMarker.on("click", () => this.deselect(key));
 
