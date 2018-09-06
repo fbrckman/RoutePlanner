@@ -28,8 +28,13 @@ class InteractiveMap extends Component {
     popupAnchor: this.popupAnchor
   });
 
-  // markerLayer;
-  map;
+  provinces = [
+    // "https://belgium.linkedconnections.org/delijn/Oost-Vlaanderen/stops",
+    // "https://belgium.linkedconnections.org/delijn/Limburg/stops",
+    // "https://belgium.linkedconnections.org/delijn/West-Vlaanderen/stops",
+    // "https://belgium.linkedconnections.org/delijn/Vlaams-Brabant/stops",
+    // "https://belgium.linkedconnections.org/delijn/Antwerpen/stops",
+  ];
 
   constructor() {
     super();
@@ -39,23 +44,18 @@ class InteractiveMap extends Component {
       departureStop: {id: "", newMarker: undefined, originalMarker: undefined},
       arrivalStop: {id: "", newMarker: undefined, originalMarker: undefined},
       markerLayer: L.markerClusterGroup(),
+      map: undefined
     };
   }
 
   componentDidMount() {
+    console.log("Map mounted");
     const self = this;
-    const {stations, markers, markerLayer} = this.state;
+    const {markerLayer} = this.state;
 
-    const provinces = [
-      // "https://belgium.linkedconnections.org/delijn/Oost-Vlaanderen/stops",
-      // "https://belgium.linkedconnections.org/delijn/Limburg/stops",
-      // "https://belgium.linkedconnections.org/delijn/West-Vlaanderen/stops",
-      // "https://belgium.linkedconnections.org/delijn/Vlaams-Brabant/stops",
-      // "https://belgium.linkedconnections.org/delijn/Antwerpen/stops",
-    ];
+    const map = L.map('mapid').setView([50.90, 5.2], 9);
+    this.setState({map: map});
 
-    self.map = L.map('mapid').setView([50.90, 5.2], 9);
-    const map = self.map;
     map.closePopupOnClick = true;
     L.tileLayer('https://{s}.tile.thunderforest.com/transport/{z}/{x}/{y}.png?apikey=f2488a35b11044e4844692095875c9ce', {
       attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
@@ -66,32 +66,16 @@ class InteractiveMap extends Component {
       return response.json();
     }).then(function (stationsNMBS) {
       stationsNMBS["@graph"].forEach(function (station) {
-        const key = station["@id"];
-        station.point = new L.LatLng(station.latitude, station.longitude);
-        stations[key] = station;
-
-        markers[key] = L.marker([station.latitude, station.longitude]).setIcon(self.blueIcon);
-        markers[key].bindPopup('<strong>' + station.name + '</strong><br> NMBS');
-        markers[key].on("mouseover", () => markers[key].openPopup());
-        markers[key].on("click", () => self.handleClick(key));
-        markerLayer.addLayer(markers[key]);
+        self.createMarker(station, '<strong>' + station.name + '</strong><br> NMBS');
       });
 
       // De Lijn
-      for (let province of provinces) {
+      for (let province of self.provinces) {
         window.fetch(province).then(function (response) {
           return response.json();
         }).then(function (stopsDeLijn) {
           stopsDeLijn["@graph"].forEach(function (stop) {
-            const key = stop["@id"];
-            stop.point = new L.LatLng(stop.latitude, stop.longitude);
-            stations[key] = stop;
-
-            markers[key] = L.marker([stop.latitude, stop.longitude]).setIcon(self.blueIcon);
-            markers[key].bindPopup('<strong>' + stop.name + '</strong><br> De Lijn');
-            markers[key].on("mouseover", () => markers[key].openPopup());
-            markers[key].on("click", () => self.handleClick(key));
-            markerLayer.addLayer(markers[key]);
+            self.createMarker(stop, '<strong>' + stop.name + '</strong><br> De Lijn');
           });
         })
       }
@@ -103,61 +87,106 @@ class InteractiveMap extends Component {
     map.addLayer(markerLayer);
   }
 
-  handleClick(key) {
-    const map = this.map;
-    const {stations, markers, departureStop, arrivalStop, markerLayer} = this.state;
+  /**
+   * Create a marker for the given station with the given label.
+   * @param station
+   * @param label:string, shown as a popup when hovering over the marker
+   */
+  createMarker(station, label) {
+    const {stations, markers, markerLayer} = this.state;
+    const key = station["@id"];
+
+    station.point = new L.LatLng(station.latitude, station.longitude);
+    station.label = label;
+    stations[key] = station;
+
+    markers[key] = L.marker([station.latitude, station.longitude]).setIcon(this.blueIcon);
+    markers[key].bindPopup(label);
+    markers[key].on("click", () => this.select(key));
+    markers[key].on("mouseover", () => markers[key].openPopup());
+    markerLayer.addLayer(markers[key]);
+  }
+
+  /**
+   * Triggers the selection of the stop with the given key.
+   * @param key:string
+   */
+  select(key) {
+    const {departureStop, arrivalStop} = this.state;
 
     if (departureStop.id === "") {
       // Select the clicked station as the new departureStop
-      const station = stations[key];
-      const newDS = {
-        id: key,
-        newMarker: L.marker([station.latitude, station.longitude]).setIcon(this.greenIcon).addTo(map),
-        originalMarker: markers[key]
-      };
-      this.setState({departureStop: newDS});
-      newDS.newMarker.on("click", () => this.deselect(key));
-
-      markerLayer.removeLayer(newDS.originalMarker);
-      if (arrivalStop.id !== "") {
-        this.map.removeLayer(markerLayer);
-      }
-
+      this.selectStop(key, true);
     } else if (arrivalStop.id === "" && key !== departureStop.id) {
       // Select the clicked station as the new arrivalStop
-      const station = stations[key];
-      const newAS = {
-        id: key,
-        newMarker: L.marker([station.latitude, station.longitude]).setIcon(this.redIcon).addTo(map),
-        originalMarker: markers[key]
-      };
-      this.setState({arrivalStop: newAS});
-      newAS.newMarker.on("click", () => this.deselect(key));
-
-      markerLayer.removeLayer(newAS.originalMarker);
-      this.map.removeLayer(markerLayer);
+      this.selectStop(key, false);
     }
   }
 
+  /**
+   * Select the stop with the given key.
+   * Add the stop to the state, remove the old marker from the markerLayer and add a new colored marker to the map.
+   * Remove the markerLayer if needed.
+   * @param key:string
+   * @param departure:boolean , true if the stop is a departureStop
+   */
+  selectStop(key, departure) {
+    const {map, stations, markers, arrivalStop, markerLayer} = this.state;
+    const station = stations[key];
+    const icon = departure ? this.greenIcon : this.redIcon;
+
+    const newStop = {
+      id: key,
+      newMarker: L.marker([station.latitude, station.longitude]).setIcon(icon).addTo(map),
+      originalMarker: markers[key]
+    };
+
+    this.setState(departure ? {departureStop: newStop} : {arrivalStop: newStop});
+    newStop.newMarker.bindPopup(stations[key].label);
+    newStop.newMarker.on("click", () => this.deselect(key));
+    newStop.newMarker.on("mouseover", () => newStop.newMarker.openPopup());
+    markerLayer.removeLayer(newStop.originalMarker);
+
+    if ((departure && arrivalStop.id !== "") || !departure) {
+      map.removeLayer(markerLayer);
+    }
+  }
+
+  /**
+   * Triggers the deselection of the stop with the given key.
+   * @param key:string
+   */
   deselect(key) {
-    const {departureStop, arrivalStop, markerLayer} = this.state;
+    const {departureStop, arrivalStop} = this.state;
     if (departureStop.id === key) {
-      // Deselect the current departureStop
-      this.map.removeLayer(departureStop.newMarker);
-      markerLayer.addLayer(departureStop.originalMarker);
-
-      this.setState({departureStop: {id: "", newMarker: undefined, originalMarker: undefined}});
-      if (arrivalStop.id !== "") {
-        this.map.addLayer(markerLayer);
-      }
+      this.deselectStop(true);
     } else if (arrivalStop.id === key) {
-      // Deselect the current arrivalStop
-      this.map.removeLayer(arrivalStop.newMarker);
-      markerLayer.addLayer(arrivalStop.originalMarker);
-      // Add the other markers back
-      this.map.addLayer(markerLayer);
+      this.deselectStop(false);
+    }
+  }
 
-      this.setState({arrivalStop: {id: "", newMarker: undefined, originalMarker: undefined}});
+  /**
+   * Deselect either the departureStop or the arrivalStop.
+   * Remove the selected marker from the map and add the original marker back to the markerLayer.
+   * Reset the stop in the state.
+   * Show the markerLayer if needed.
+   * @param departure:boolean, true if the departureStop has to be deselected
+   */
+  deselectStop(departure) {
+    const {map, departureStop, arrivalStop, markerLayer} = this.state;
+    const stop = departure ? departureStop : arrivalStop;
+    const newStop = {id: "", newMarker: undefined, originalMarker: undefined};
+
+    map.removeLayer(stop.newMarker);
+    markerLayer.addLayer(stop.originalMarker);
+    this.setState(departure ? {departureStop: newStop} : {arrivalStop: newStop});
+
+    if (departure) {
+      if (arrivalStop.id !== "") {
+        map.addLayer(markerLayer);
+      }
+    } else {
+      map.addLayer(markerLayer);
     }
   }
 
