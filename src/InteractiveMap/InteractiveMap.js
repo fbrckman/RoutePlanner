@@ -9,10 +9,26 @@ class InteractiveMap extends Component {
   iconAnchor = [12, 41];
   popupAnchor = [0, -40]; // Popup above the marker icon
 
-  // departureStop = {id: "", newMarker: undefined, originalMarker: undefined};
-  // arrivalStop = {id: "", newMarker: undefined, originalMarker: undefined};
+  blueIcon = L.icon({
+    iconUrl: 'https://linkedconnections.org/images/marker-icon.png',
+    iconRetinaUrl: 'https://linkedconnections.org/images/marker-icon-2x.png',
+    iconAnchor: this.iconAnchor,
+    popupAnchor: this.popupAnchor
+  });
+  redIcon = L.icon({
+    iconUrl: 'https://linkedconnections.org/images/marker-icon-end.png',
+    iconRetinaUrl: 'https://linkedconnections.org/images/marker-icon-2x-end.png',
+    iconAnchor: this.iconAnchor,
+    popupAnchor: this.popupAnchor
+  });
+  greenIcon = L.icon({
+    iconUrl: 'https://linkedconnections.org/images/marker-icon-start.png',
+    iconRetinaUrl: 'https://linkedconnections.org/images/marker-icon-2x-start.png',
+    iconAnchor: this.iconAnchor,
+    popupAnchor: this.popupAnchor
+  });
 
-  markerLayer;
+  // markerLayer;
   map;
 
   constructor() {
@@ -22,15 +38,16 @@ class InteractiveMap extends Component {
       markers: {},
       departureStop: {id: "", newMarker: undefined, originalMarker: undefined},
       arrivalStop: {id: "", newMarker: undefined, originalMarker: undefined},
+      markerLayer: L.markerClusterGroup(),
     };
   }
 
   componentDidMount() {
     const self = this;
-    const {stations, markers} = this.state;
+    const {stations, markers, markerLayer} = this.state;
 
     const provinces = [
-      "https://belgium.linkedconnections.org/delijn/Oost-Vlaanderen/stops",
+      // "https://belgium.linkedconnections.org/delijn/Oost-Vlaanderen/stops",
       // "https://belgium.linkedconnections.org/delijn/Limburg/stops",
       // "https://belgium.linkedconnections.org/delijn/West-Vlaanderen/stops",
       // "https://belgium.linkedconnections.org/delijn/Vlaams-Brabant/stops",
@@ -44,14 +61,6 @@ class InteractiveMap extends Component {
       attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(map);
 
-    self.markerLayer = L.markerClusterGroup();
-    const blueIcon = L.icon({
-      iconUrl: 'https://linkedconnections.org/images/marker-icon.png',
-      iconRetinaUrl: 'https://linkedconnections.org/images/marker-icon-2x.png',
-      iconAnchor: self.iconAnchor,
-      popupAnchor: self.popupAnchor
-    });
-
     // NMBS
     window.fetch("https://irail.be/stations/NMBS", {headers: {'accept': 'application/ld+json'}}).then(function (response) {
       return response.json();
@@ -61,11 +70,11 @@ class InteractiveMap extends Component {
         station.point = new L.LatLng(station.latitude, station.longitude);
         stations[key] = station;
 
-        markers[key] = L.marker([station.latitude, station.longitude]).setIcon(blueIcon);
+        markers[key] = L.marker([station.latitude, station.longitude]).setIcon(self.blueIcon);
         markers[key].bindPopup('<strong>' + station.name + '</strong><br> NMBS');
         markers[key].on("mouseover", () => markers[key].openPopup());
         markers[key].on("click", () => self.handleClick(key));
-        self.markerLayer.addLayer(markers[key]);
+        markerLayer.addLayer(markers[key]);
       });
 
       // De Lijn
@@ -78,11 +87,11 @@ class InteractiveMap extends Component {
             stop.point = new L.LatLng(stop.latitude, stop.longitude);
             stations[key] = stop;
 
-            markers[key] = L.marker([stop.latitude, stop.longitude]).setIcon(blueIcon);
+            markers[key] = L.marker([stop.latitude, stop.longitude]).setIcon(self.blueIcon);
             markers[key].bindPopup('<strong>' + stop.name + '</strong><br> De Lijn');
             markers[key].on("mouseover", () => markers[key].openPopup());
             markers[key].on("click", () => self.handleClick(key));
-            self.markerLayer.addLayer(markers[key]);
+            markerLayer.addLayer(markers[key]);
           });
         })
       }
@@ -91,39 +100,27 @@ class InteractiveMap extends Component {
       console.error(ex);
     });
 
-    map.addLayer(self.markerLayer);
+    map.addLayer(markerLayer);
   }
 
   handleClick(key) {
     const map = this.map;
-    const {stations, markers, departureStop, arrivalStop} = this.state;
-    const redIcon = L.icon({
-      iconUrl: 'https://linkedconnections.org/images/marker-icon-end.png',
-      iconRetinaUrl: 'https://linkedconnections.org/images/marker-icon-2x-end.png',
-      iconAnchor: this.iconAnchor,
-      popupAnchor: this.popupAnchor
-    });
-    const greenIcon = L.icon({
-      iconUrl: 'https://linkedconnections.org/images/marker-icon-start.png',
-      iconRetinaUrl: 'https://linkedconnections.org/images/marker-icon-2x-start.png',
-      iconAnchor: this.iconAnchor,
-      popupAnchor: this.popupAnchor
-    });
+    const {stations, markers, departureStop, arrivalStop, markerLayer} = this.state;
 
     if (departureStop.id === "") {
       // Select the clicked station as the new departureStop
       const station = stations[key];
       const newDS = {
         id: key,
-        newMarker: L.marker([station.latitude, station.longitude]).setIcon(greenIcon).addTo(map),
+        newMarker: L.marker([station.latitude, station.longitude]).setIcon(this.greenIcon).addTo(map),
         originalMarker: markers[key]
       };
       this.setState({departureStop: newDS});
       newDS.newMarker.on("click", () => this.deselect(key));
 
-      this.markerLayer.removeLayer(newDS.originalMarker);
+      markerLayer.removeLayer(newDS.originalMarker);
       if (arrivalStop.id !== "") {
-        this.map.removeLayer(this.markerLayer);
+        this.map.removeLayer(markerLayer);
       }
 
     } else if (arrivalStop.id === "" && key !== departureStop.id) {
@@ -131,34 +128,34 @@ class InteractiveMap extends Component {
       const station = stations[key];
       const newAS = {
         id: key,
-        newMarker: L.marker([station.latitude, station.longitude]).setIcon(redIcon).addTo(map),
+        newMarker: L.marker([station.latitude, station.longitude]).setIcon(this.redIcon).addTo(map),
         originalMarker: markers[key]
       };
       this.setState({arrivalStop: newAS});
       newAS.newMarker.on("click", () => this.deselect(key));
 
-      this.markerLayer.removeLayer(newAS.originalMarker);
-      this.map.removeLayer(this.markerLayer);
+      markerLayer.removeLayer(newAS.originalMarker);
+      this.map.removeLayer(markerLayer);
     }
   }
 
   deselect(key) {
-    const {departureStop, arrivalStop} = this.state;
+    const {departureStop, arrivalStop, markerLayer} = this.state;
     if (departureStop.id === key) {
       // Deselect the current departureStop
       this.map.removeLayer(departureStop.newMarker);
-      this.markerLayer.addLayer(departureStop.originalMarker);
+      markerLayer.addLayer(departureStop.originalMarker);
 
       this.setState({departureStop: {id: "", newMarker: undefined, originalMarker: undefined}});
       if (arrivalStop.id !== "") {
-        this.map.addLayer(this.markerLayer);
+        this.map.addLayer(markerLayer);
       }
     } else if (arrivalStop.id === key) {
       // Deselect the current arrivalStop
       this.map.removeLayer(arrivalStop.newMarker);
-      this.markerLayer.addLayer(arrivalStop.originalMarker);
+      markerLayer.addLayer(arrivalStop.originalMarker);
       // Add the other markers back
-      this.map.addLayer(this.markerLayer);
+      this.map.addLayer(markerLayer);
 
       this.setState({arrivalStop: {id: "", newMarker: undefined, originalMarker: undefined}});
     }
