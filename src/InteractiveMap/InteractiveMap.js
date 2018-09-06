@@ -9,11 +9,8 @@ class InteractiveMap extends Component {
   iconAnchor = [12, 41];
   popupAnchor = [0, -40]; // Popup above the marker icon
 
-  departureStop = {id: "", newMarker: undefined, originalMarker: undefined};
-  arrivalStop = {id: "", newMarker: undefined, originalMarker: undefined};
-
-  // stations = {};
-  // markers = {};
+  // departureStop = {id: "", newMarker: undefined, originalMarker: undefined};
+  // arrivalStop = {id: "", newMarker: undefined, originalMarker: undefined};
 
   markerLayer;
   map;
@@ -23,6 +20,8 @@ class InteractiveMap extends Component {
     this.state = {
       stations: {},
       markers: {},
+      departureStop: {id: "", newMarker: undefined, originalMarker: undefined},
+      arrivalStop: {id: "", newMarker: undefined, originalMarker: undefined},
     };
   }
 
@@ -52,8 +51,6 @@ class InteractiveMap extends Component {
       iconAnchor: self.iconAnchor,
       popupAnchor: self.popupAnchor
     });
-    // L.Icon.Default.iconUrl = 'https://linkedconnections.org/images/marker-icon.png';
-    // L.Icon.Default.iconRetinaUrl = 'https://linkedconnections.org/images/marker-icon-2x.png';
 
     // NMBS
     window.fetch("https://irail.be/stations/NMBS", {headers: {'accept': 'application/ld+json'}}).then(function (response) {
@@ -99,7 +96,7 @@ class InteractiveMap extends Component {
 
   handleClick(key) {
     const map = this.map;
-    const {stations, markers} = this.state;
+    const {stations, markers, departureStop, arrivalStop} = this.state;
     const redIcon = L.icon({
       iconUrl: 'https://linkedconnections.org/images/marker-icon-end.png',
       iconRetinaUrl: 'https://linkedconnections.org/images/marker-icon-2x-end.png',
@@ -113,54 +110,57 @@ class InteractiveMap extends Component {
       popupAnchor: this.popupAnchor
     });
 
-    if (this.departureStop.id === "") {
+    if (departureStop.id === "") {
       // Select the clicked station as the new departureStop
       const station = stations[key];
-      this.departureStop = {
+      const newDS = {
         id: key,
         newMarker: L.marker([station.latitude, station.longitude]).setIcon(greenIcon).addTo(map),
         originalMarker: markers[key]
       };
-      this.departureStop.newMarker.on("click", () => this.deselect(key));
+      this.setState({departureStop: newDS});
+      newDS.newMarker.on("click", () => this.deselect(key));
 
-      this.markerLayer.removeLayer(this.departureStop.originalMarker);
-      if (this.arrivalStop.id !== "") {
+      this.markerLayer.removeLayer(newDS.originalMarker);
+      if (arrivalStop.id !== "") {
         this.map.removeLayer(this.markerLayer);
       }
 
-    } else if (this.arrivalStop.id === "" && key !== this.departureStop.id) {
+    } else if (arrivalStop.id === "" && key !== departureStop.id) {
       // Select the clicked station as the new arrivalStop
       const station = stations[key];
-      this.arrivalStop = {
+      const newAS = {
         id: key,
         newMarker: L.marker([station.latitude, station.longitude]).setIcon(redIcon).addTo(map),
         originalMarker: markers[key]
       };
-      this.arrivalStop.newMarker.on("click", () => this.deselect(key));
+      this.setState({arrivalStop: newAS});
+      newAS.newMarker.on("click", () => this.deselect(key));
 
-      this.markerLayer.removeLayer(this.arrivalStop.originalMarker);
+      this.markerLayer.removeLayer(newAS.originalMarker);
       this.map.removeLayer(this.markerLayer);
     }
   }
 
   deselect(key) {
-    if (this.departureStop.id === key) {
+    const {departureStop, arrivalStop} = this.state;
+    if (departureStop.id === key) {
       // Deselect the current departureStop
-      this.map.removeLayer(this.departureStop.newMarker);
-      this.markerLayer.addLayer(this.departureStop.originalMarker);
+      this.map.removeLayer(departureStop.newMarker);
+      this.markerLayer.addLayer(departureStop.originalMarker);
 
-      this.departureStop = {id: "", newMarker: undefined, originalMarker: undefined};
-      if (this.arrivalStop.id !== "") {
+      this.setState({departureStop: {id: "", newMarker: undefined, originalMarker: undefined}});
+      if (arrivalStop.id !== "") {
         this.map.addLayer(this.markerLayer);
       }
-    } else if (this.arrivalStop.id === key) {
+    } else if (arrivalStop.id === key) {
       // Deselect the current arrivalStop
-      this.map.removeLayer(this.arrivalStop.newMarker);
-      this.markerLayer.addLayer(this.arrivalStop.originalMarker);
+      this.map.removeLayer(arrivalStop.newMarker);
+      this.markerLayer.addLayer(arrivalStop.originalMarker);
       // Add the other markers back
       this.map.addLayer(this.markerLayer);
 
-      this.arrivalStop = {id: "", newMarker: undefined, originalMarker: undefined};
+      this.setState({arrivalStop: {id: "", newMarker: undefined, originalMarker: undefined}});
     }
   }
 
