@@ -58,11 +58,12 @@ class TravelForm extends Component {
   render() {
     const {type, submit} = this.state;
     const dt = this.state.datetime, m = dt.getMinutes();
+    // TODO internationalization
     const dateString = dt.getDate() + '-' + (dt.getMonth() + 1) + '-' + dt.getFullYear(),
           timeString = dt.getHours() + ':' + (m < 10 ? '0' + m : m);
 
     return (
-      <div>
+      <div className="ui segment">
         <Form onSubmit={this.handleSubmit}>
           <Form.Group widths="equal">
             <Form.Field control={Select} options={options} placeholder='Choose an option...'

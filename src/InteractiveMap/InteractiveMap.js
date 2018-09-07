@@ -4,7 +4,7 @@ import L from 'leaflet';
 import 'leaflet.markercluster';
 import './InteractiveMap.css';
 import {Form, Dimmer, Loader} from 'semantic-ui-react';
-import ProvinceCheckbox from './ProvinceCheckbox';
+import ProvinceCheckbox from './ProvinceCheckbox/ProvinceCheckbox';
 
 class InteractiveMap extends Component {
 
@@ -37,46 +37,34 @@ class InteractiveMap extends Component {
       rendering: false,
       stations: {},
       markers: {},
-      departureStop: {id: "", newMarker: undefined, originalMarker: undefined},
-      arrivalStop: {id: "", newMarker: undefined, originalMarker: undefined},
       markerLayer: L.markerClusterGroup(),
       map: undefined,
+      departureStop: {id: "", newMarker: undefined, originalMarker: undefined},
+      arrivalStop: {id: "", newMarker: undefined, originalMarker: undefined},
       provinces: {
         "Oost-Vlaanderen": {
           url: "https://belgium.linkedconnections.org/delijn/Oost-Vlaanderen/stops",
-          markers: undefined,
-          stops: new Set(),
-          shown: false
+          markers: undefined, stops: new Set(), shown: false
         },
         "Limburg": {
           url: "https://belgium.linkedconnections.org/delijn/Limburg/stops",
-          markers: undefined,
-          stops: new Set(),
-          shown: false
+          markers: undefined, stops: new Set(), shown: false
         },
         "West-Vlaanderen": {
           url: "https://belgium.linkedconnections.org/delijn/West-Vlaanderen/stops",
-          markers: undefined,
-          stops: new Set(),
-          shown: false
+          markers: undefined, stops: new Set(), shown: false
         },
         "Vlaams-Brabant": {
           url: "https://belgium.linkedconnections.org/delijn/Vlaams-Brabant/stops",
-          markers: undefined,
-          stops: new Set(),
-          shown: false
+          markers: undefined, stops: new Set(), shown: false
         },
         "Antwerpen": {
           url: "https://belgium.linkedconnections.org/delijn/Antwerpen/stops",
-          markers: undefined,
-          stops: new Set(),
-          shown: false
+          markers: undefined, stops: new Set(), shown: false
         },
       },
       nmbs: {
-        markers: undefined,
-        stops: new Set(),
-        shown: false,
+        markers: undefined, stops: new Set(), shown: true,
       }
     };
   }
@@ -112,7 +100,8 @@ class InteractiveMap extends Component {
       for (let province of Object.keys(provinces)) {
         window.fetch(provinces[province].url).then(function (response) {
           return response.json();
-        }).then(function (stopsDeLijn) { // FIXME no-loop-func
+        }).then(function (stopsDeLijn) {
+          console.log(province, "fetched");
           stopsDeLijn["@graph"].forEach(function (stop) {
             const key = stop["@id"];
             provinces[province].stops.add(key);
@@ -120,104 +109,20 @@ class InteractiveMap extends Component {
             stations[key] = stop;
           });
 
+          // FIXME this part causes the no-loop-func warning
           // Keep the checkboxes in a fetching state while the data is fetching
           fetched += 1;
           if (fetched === Object.keys(provinces).length) {
             self.setState({fetching: false});
+            self.update(self);
           }
         });
       }
-
     }).catch(function (ex) {
       console.error(ex);
     });
 
     map.addLayer(markerLayer);
-  }
-
-  /**
-   * Triggers the selection of the stop with the given key.
-   * @param key:string
-   */
-  select(key) {
-    const {departureStop, arrivalStop} = this.state;
-
-    if (departureStop.id === "") {
-      // Select the clicked station as the new departureStop
-      this.selectStop(key, true);
-    } else if (arrivalStop.id === "" && key !== departureStop.id) {
-      // Select the clicked station as the new arrivalStop
-      this.selectStop(key, false);
-    }
-  }
-
-  /**
-   * Select the stop with the given key.
-   * Add the stop to the state, remove the old marker from the markerLayer and add a new colored marker to the map.
-   * Remove the markerLayer if needed.
-   * @param key:string
-   * @param departure:boolean , true if the stop is a departureStop
-   */
-  selectStop(key, departure) {
-    const {map, stations, markers, arrivalStop, markerLayer} = this.state;
-    const station = stations[key];
-    const icon = departure ? this.greenIcon : this.redIcon;
-
-    const newStop = {
-      id: key,
-      newMarker: L.marker([station.latitude, station.longitude]).setIcon(icon).addTo(map),
-      originalMarker: markers[key]
-    };
-
-    this.setState(departure ? {departureStop: newStop} : {arrivalStop: newStop});
-    newStop.newMarker.bindPopup(stations[key].label);
-    newStop.newMarker.on("click", () => this.deselect(key));
-    newStop.newMarker.on("mouseover", () => newStop.newMarker.openPopup());
-    markerLayer.removeLayer(newStop.originalMarker);
-
-    if ((departure && arrivalStop.id !== "") || !departure) {
-      map.removeLayer(markerLayer);
-    }
-
-    const fieldID = departure ? "departure-field" : "arrival-field";
-    document.getElementById(fieldID).setAttribute("value", station.name);
-  }
-
-  /**
-   * Triggers the deselection of the stop with the given key.
-   * @param key:string
-   */
-  deselect(key) {
-    const {departureStop, arrivalStop} = this.state;
-    if (departureStop.id === key) {
-      this.deselectStop(true);
-    } else if (arrivalStop.id === key) {
-      this.deselectStop(false);
-    }
-  }
-
-  /**
-   * Deselect either the departureStop or the arrivalStop.
-   * Remove the selected marker from the map and add the original marker back to the markerLayer.
-   * Reset the stop in the state.
-   * Show the markerLayer if needed.
-   * @param departure:boolean, true if the departureStop has to be deselected
-   */
-  deselectStop(departure) {
-    const {map, departureStop, arrivalStop, markerLayer} = this.state;
-    const stop = departure ? departureStop : arrivalStop;
-    const newStop = {id: "", newMarker: undefined, originalMarker: undefined};
-
-    map.removeLayer(stop.newMarker);
-    markerLayer.addLayer(stop.originalMarker);
-    this.setState(departure ? {departureStop: newStop} : {arrivalStop: newStop});
-
-    if ((departure && arrivalStop.id !== "") || !departure) {
-      map.addLayer(markerLayer);
-    }
-
-    const fieldID = departure ? "departure-field" : "arrival-field";
-    document.getElementById(fieldID).setAttribute("value", "");
   }
 
   /**
@@ -246,7 +151,10 @@ class InteractiveMap extends Component {
 
     for (const sID of type.stops) {
       const stop = stations[sID];
-      this.createMarker(stop, '<strong>' + stop.name + '</strong><br> ' + subLabel);
+      let id = sID.split('/');
+      id = id[id.length - 1];
+      this.createMarker(stop, '<strong>' + stop.name + '</strong><br> ' + subLabel + '<br>ID: ' + id);
+      markers[sID].markerGroup = group;
       group.addLayer(markers[sID]);
     }
     type.markers = group;
@@ -283,42 +191,128 @@ class InteractiveMap extends Component {
     callback();
   }
 
+  /**
+   * Triggers the selection of the stop with the given key.
+   * @param key:string
+   */
+  select(key) {
+    const {departureStop, arrivalStop} = this.state;
+
+    if (departureStop.id === "") {
+      // Select the clicked station as the new departureStop
+      this.selectStop(key, true);
+    } else if (arrivalStop.id === "" && key !== departureStop.id) {
+      // Select the clicked station as the new arrivalStop
+      this.selectStop(key, false);
+    }
+  }
+
+  /**
+   * Select the stop with the given key.
+   * Add the stop to the state, remove the old marker from the markerLayer and add a new colored marker to the map.
+   * Remove the markerLayer if needed.
+   * @param key:string
+   * @param departure:boolean , true if the stop is a departureStop
+   */
+  selectStop(key, departure) {
+    const {map, stations, markers, arrivalStop, markerLayer} = this.state;
+    const station = stations[key];
+    const original = markers[key];
+    const icon = departure ? this.greenIcon : this.redIcon;
+
+    const newStop = {
+      id: key,
+      newMarker: L.marker([station.latitude, station.longitude]).setIcon(icon).addTo(map),
+      originalMarker: original
+    };
+
+    this.setState(departure ? {departureStop: newStop} : {arrivalStop: newStop});
+    newStop.newMarker.bindPopup(stations[key].label);
+    newStop.newMarker.on("click", () => this.deselect(key));
+    newStop.newMarker.on("mouseover", () => newStop.newMarker.openPopup());
+    original.markerGroup.removeLayer(original);
+
+    if ((departure && arrivalStop.id !== "") || !departure) {
+      map.removeLayer(markerLayer);
+    }
+
+    const fieldID = departure ? "departure-field" : "arrival-field";
+    document.getElementById(fieldID).setAttribute("value", station.name);
+  }
+
+  /**
+   * Triggers the deselection of the stop with the given key.
+   * @param key:string
+   */
+  deselect(key) {
+    const {departureStop, arrivalStop} = this.state;
+    if (departureStop.id === key) {
+      this.deselectStop(true);
+    } else if (arrivalStop.id === key) {
+      this.deselectStop(false);
+    }
+  }
+
+  /**
+   * Deselect either the departureStop or the arrivalStop.
+   * Remove the selected marker from the map and add the original marker back to the markerLayer.
+   * Reset the stop in the state.
+   * Show the markerLayer if needed.
+   * @param departure:boolean, true if the departureStop has to be deselected
+   */
+  deselectStop(departure) {
+    const {map, departureStop, arrivalStop, markerLayer} = this.state;
+    const stop = departure ? departureStop : arrivalStop;
+    const newStop = {id: "", newMarker: undefined, originalMarker: undefined};
+
+    map.removeLayer(stop.newMarker);
+    stop.originalMarker.markerGroup.addLayer(stop.originalMarker);
+    this.setState(departure ? {departureStop: newStop} : {arrivalStop: newStop});
+
+    if ((departure && arrivalStop.id !== "") || !departure) {
+      map.addLayer(markerLayer);
+    }
+
+    const fieldID = departure ? "departure-field" : "arrival-field";
+    document.getElementById(fieldID).setAttribute("value", "");
+  }
+
+  update(self) {
+    self.setState({rendering: true});
+    self.showProvinces(self.state, () => self.setState({rendering: false}));
+  }
+
   render() {
     const self = this;
     return (
       <div>
         <Form>
-          <Form.Group className="inline">
-            <Form.Field className="inline">
-              <label>Starting point</label>
-              <input id="departure-field" name="departure-stop" placeholder="No station selected." type="text"/>
-            </Form.Field>
-            <Form.Field className="inline">
-              <label>Destination</label>
-              <input id="arrival-field" name="arrival-stop" placeholder="No station selected" type="text"/>
-            </Form.Field>
-          </Form.Group>
+          <div className="ui segment">
+            <Form.Group className="inline">
+              <Form.Field className="inline">
+                <label>Starting point</label>
+                <input id="departure-field" name="departure-stop" placeholder="No station selected." type="text"/>
+              </Form.Field>
+              <Form.Field className="inline">
+                <label>Destination</label>
+                <input id="arrival-field" name="arrival-stop" placeholder="No station selected" type="text"/>
+              </Form.Field>
+            </Form.Group>
+          </div>
         </Form>
         <ProvinceCheckbox
           provinces={self.state.provinces}
           nmbs={self.state.nmbs}
           loading={self.state.fetching}
-          func={() => {
-            self.setState({rendering: true}, () => self.showProvinces(self.state, () => self.setState({rendering: false})));
-          }}/>
+          func={() => self.update(self)} />
         <div id="mapid">
           <Dimmer active={this.state.rendering}>
-            <Loader />
+            <Loader/>
           </Dimmer>
         </div>
       </div>
     );
   }
 }
-
-//<div className="ui checkbox toggle">
-//  <input type="checkbox" name={province} id={province} value={self.state.provinces[province].shown}/>
-//  <label>{province}</label>
-//</div>
 
 export default InteractiveMap;

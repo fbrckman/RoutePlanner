@@ -6,7 +6,7 @@
 @import url("../../node_modules/leaflet-loading/src/Control.Loading.css");
 
 .App {
-  text-align: center;
+    margin: 25px;
 }
 
 .App-logo {
