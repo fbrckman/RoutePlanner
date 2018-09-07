@@ -3,7 +3,7 @@ import 'whatwg-fetch';
 import L from 'leaflet';
 import 'leaflet.markercluster';
 import './InteractiveMap.css';
-import {Form, Dimmer, Loader} from 'semantic-ui-react';
+import {Form, Dimmer, Loader, Input, Icon} from 'semantic-ui-react';
 import ProvinceCheckbox from './ProvinceCheckbox/ProvinceCheckbox';
 
 class InteractiveMap extends Component {
@@ -324,12 +324,15 @@ class InteractiveMap extends Component {
           <div className="ui segment">
             <Form.Group className="inline">
               <Form.Field className="inline">
-                <label>Starting point</label>
-                <input id="departure-field" name="departure-stop" placeholder="No station selected." type="text"/>
+                {/*<label>Starting point</label>*/}
+                <Input icon={<Icon name='map marker alternate' color='green'/>}
+                       label="Starting point" id="departure-field" name="departure-stop"
+                       placeholder="No station selected." type="text"/>
               </Form.Field>
               <Form.Field className="inline">
-                <label>Destination</label>
-                <input id="arrival-field" name="arrival-stop" placeholder="No station selected" type="text"/>
+                {/*<label>Destination</label>*/}
+                <Input icon={<Icon name='map marker alternate' color='red'/>} label="Destination"
+                       id="arrival-field" name="arrival-stop" placeholder="No station selected" type="text"/>
               </Form.Field>
             </Form.Group>
           </div>
