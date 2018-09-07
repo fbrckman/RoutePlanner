@@ -318,32 +318,31 @@ class InteractiveMap extends Component {
 
   render() {
     const self = this;
+    const {departureStop, arrivalStop, provinces, nmbs, rendering, fetching} = this.state;
     return (
       <div>
-        <Form>
+        <Form onSubmit={() => console.log("Calculating...")}>
           <div className="ui segment">
             <Form.Group className="inline">
               <Form.Field className="inline">
-                {/*<label>Starting point</label>*/}
                 <Input icon={<Icon name='map marker alternate' color='green'/>}
                        label="Starting point" id="departure-field" name="departure-stop"
                        placeholder="No station selected." type="text"/>
               </Form.Field>
               <Form.Field className="inline">
-                {/*<label>Destination</label>*/}
                 <Input icon={<Icon name='map marker alternate' color='red'/>} label="Destination"
                        id="arrival-field" name="arrival-stop" placeholder="No station selected" type="text"/>
+              </Form.Field>
+              <Form.Field>
+                <Form.Button content="Submit" disabled={departureStop.id === "" || arrivalStop.id === ""}/>
               </Form.Field>
             </Form.Group>
           </div>
         </Form>
         <ProvinceCheckbox
-          provinces={self.state.provinces}
-          nmbs={self.state.nmbs}
-          loading={self.state.fetching}
-          func={(e) => self.update(self, e.target.name)}/>
+          provinces={provinces} nmbs={nmbs} loading={fetching} func={(e) => self.update(self, e.target.name)}/>
         <div id="mapid">
-          <Dimmer active={this.state.rendering}>
+          <Dimmer active={rendering}>
             <Loader/>
           </Dimmer>
         </div>
