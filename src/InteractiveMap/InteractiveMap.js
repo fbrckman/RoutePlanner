@@ -3,6 +3,8 @@ import 'whatwg-fetch';
 import L from 'leaflet';
 import 'leaflet.markercluster';
 import './InteractiveMap.css';
+import {Form, Dimmer, Loader} from 'semantic-ui-react';
+import ProvinceCheckbox from './ProvinceCheckbox';
 
 class InteractiveMap extends Component {
 
@@ -28,32 +30,63 @@ class InteractiveMap extends Component {
     popupAnchor: this.popupAnchor
   });
 
-  provinces = [
-    // "https://belgium.linkedconnections.org/delijn/Oost-Vlaanderen/stops",
-    // "https://belgium.linkedconnections.org/delijn/Limburg/stops",
-    // "https://belgium.linkedconnections.org/delijn/West-Vlaanderen/stops",
-    // "https://belgium.linkedconnections.org/delijn/Vlaams-Brabant/stops",
-    // "https://belgium.linkedconnections.org/delijn/Antwerpen/stops",
-  ];
-
   constructor() {
     super();
     this.state = {
+      fetching: true,
+      rendering: false,
       stations: {},
       markers: {},
       departureStop: {id: "", newMarker: undefined, originalMarker: undefined},
       arrivalStop: {id: "", newMarker: undefined, originalMarker: undefined},
       markerLayer: L.markerClusterGroup(),
-      map: undefined
+      map: undefined,
+      provinces: {
+        "Oost-Vlaanderen": {
+          url: "https://belgium.linkedconnections.org/delijn/Oost-Vlaanderen/stops",
+          markers: undefined,
+          stops: new Set(),
+          shown: false
+        },
+        "Limburg": {
+          url: "https://belgium.linkedconnections.org/delijn/Limburg/stops",
+          markers: undefined,
+          stops: new Set(),
+          shown: false
+        },
+        "West-Vlaanderen": {
+          url: "https://belgium.linkedconnections.org/delijn/West-Vlaanderen/stops",
+          markers: undefined,
+          stops: new Set(),
+          shown: false
+        },
+        "Vlaams-Brabant": {
+          url: "https://belgium.linkedconnections.org/delijn/Vlaams-Brabant/stops",
+          markers: undefined,
+          stops: new Set(),
+          shown: false
+        },
+        "Antwerpen": {
+          url: "https://belgium.linkedconnections.org/delijn/Antwerpen/stops",
+          markers: undefined,
+          stops: new Set(),
+          shown: false
+        },
+      },
+      nmbs: {
+        markers: undefined,
+        stops: new Set(),
+        shown: false,
+      }
     };
   }
 
   componentDidMount() {
-    console.log("Map mounted");
     const self = this;
-    const {markerLayer} = this.state;
+    const {markerLayer, provinces, nmbs, stations} = this.state;
 
     const map = L.map('mapid').setView([50.90, 5.2], 9);
+    map.options.loadingControl = true;
     this.setState({map: map});
 
     map.closePopupOnClick = true;
@@ -66,18 +99,33 @@ class InteractiveMap extends Component {
       return response.json();
     }).then(function (stationsNMBS) {
       stationsNMBS["@graph"].forEach(function (station) {
-        self.createMarker(station, '<strong>' + station.name + '</strong><br> NMBS');
+        const key = station["@id"];
+        nmbs.stops.add(key);
+        station.point = new L.LatLng(station.latitude, station.longitude);
+        stations[key] = station;
       });
 
+      // Keeping track of the number of fetched provinces
+      let fetched = 0;
+
       // De Lijn
-      for (let province of self.provinces) {
-        window.fetch(province).then(function (response) {
+      for (let province of Object.keys(provinces)) {
+        window.fetch(provinces[province].url).then(function (response) {
           return response.json();
-        }).then(function (stopsDeLijn) {
+        }).then(function (stopsDeLijn) { // FIXME no-loop-func
           stopsDeLijn["@graph"].forEach(function (stop) {
-            self.createMarker(stop, '<strong>' + stop.name + '</strong><br> De Lijn');
+            const key = stop["@id"];
+            provinces[province].stops.add(key);
+            stop.point = new L.LatLng(stop.latitude, stop.longitude);
+            stations[key] = stop;
           });
-        })
+
+          // Keep the checkboxes in a fetching state while the data is fetching
+          fetched += 1;
+          if (fetched === Object.keys(provinces).length) {
+            self.setState({fetching: false});
+          }
+        });
       }
 
     }).catch(function (ex) {
@@ -85,26 +133,6 @@ class InteractiveMap extends Component {
     });
 
     map.addLayer(markerLayer);
-  }
-
-  /**
-   * Create a marker for the given station with the given label.
-   * @param station
-   * @param label:string, shown as a popup when hovering over the marker
-   */
-  createMarker(station, label) {
-    const {stations, markers, markerLayer} = this.state;
-    const key = station["@id"];
-
-    station.point = new L.LatLng(station.latitude, station.longitude);
-    station.label = label;
-    stations[key] = station;
-
-    markers[key] = L.marker([station.latitude, station.longitude]).setIcon(this.blueIcon);
-    markers[key].bindPopup(label);
-    markers[key].on("click", () => this.select(key));
-    markers[key].on("mouseover", () => markers[key].openPopup());
-    markerLayer.addLayer(markers[key]);
   }
 
   /**
@@ -150,6 +178,9 @@ class InteractiveMap extends Component {
     if ((departure && arrivalStop.id !== "") || !departure) {
       map.removeLayer(markerLayer);
     }
+
+    const fieldID = departure ? "departure-field" : "arrival-field";
+    document.getElementById(fieldID).setAttribute("value", station.name);
   }
 
   /**
@@ -181,18 +212,113 @@ class InteractiveMap extends Component {
     markerLayer.addLayer(stop.originalMarker);
     this.setState(departure ? {departureStop: newStop} : {arrivalStop: newStop});
 
-    if (departure) {
-      if (arrivalStop.id !== "") {
-        map.addLayer(markerLayer);
-      }
-    } else {
+    if ((departure && arrivalStop.id !== "") || !departure) {
       map.addLayer(markerLayer);
     }
+
+    const fieldID = departure ? "departure-field" : "arrival-field";
+    document.getElementById(fieldID).setAttribute("value", "");
+  }
+
+  /**
+   * Create a marker for the given station with the given label.
+   * @param station
+   * @param label:string, shown as a popup when hovering over the marker
+   */
+  createMarker(station, label) {
+    const {markers} = this.state;
+    const key = station["@id"];
+
+    station.label = label;
+    markers[key] = L.marker([station.latitude, station.longitude]).setIcon(this.blueIcon);
+    markers[key].bindPopup(label);
+    markers[key].on("click", () => this.select(key));
+    markers[key].on("mouseover", () => markers[key].openPopup());
+  }
+
+  renderMarkers(province) {
+    const {markers, stations, nmbs} = this.state;
+    const p = province !== undefined;
+    const group = L.layerGroup();
+
+    const type = p ? province : nmbs;
+    const subLabel = p ? 'De Lijn' : 'NMBS';
+
+    for (const sID of type.stops) {
+      const stop = stations[sID];
+      this.createMarker(stop, '<strong>' + stop.name + '</strong><br> ' + subLabel);
+      group.addLayer(markers[sID]);
+    }
+    type.markers = group;
+  }
+
+  showProvinces(state, callback) {
+    const {nmbs, provinces, markerLayer} = state;
+
+    // Handle each province
+    for (const key of Object.keys(provinces)) {
+      const p = provinces[key];
+      if (p.shown) {
+        // Render the markers if needed
+        if (p.markers === undefined) {
+          this.renderMarkers(p);
+        }
+        // Show the markers on the map
+        markerLayer.addLayer(p.markers);
+      } else if (p.markers !== undefined) {
+        // Remove the markers if needed
+        markerLayer.removeLayer(p.markers);
+      }
+    }
+
+    // Handle the NMBS markers seperately
+    if (nmbs.shown) {
+      if (nmbs.markers === undefined) {
+        this.renderMarkers(undefined);
+      }
+      markerLayer.addLayer(nmbs.markers);
+    } else if (nmbs.markers !== undefined) {
+      markerLayer.removeLayer(nmbs.markers);
+    }
+    callback();
   }
 
   render() {
-    return <div id="mapid"/>;
+    const self = this;
+    return (
+      <div>
+        <Form>
+          <Form.Group className="inline">
+            <Form.Field className="inline">
+              <label>Starting point</label>
+              <input id="departure-field" name="departure-stop" placeholder="No station selected." type="text"/>
+            </Form.Field>
+            <Form.Field className="inline">
+              <label>Destination</label>
+              <input id="arrival-field" name="arrival-stop" placeholder="No station selected" type="text"/>
+            </Form.Field>
+          </Form.Group>
+        </Form>
+        <ProvinceCheckbox
+          provinces={self.state.provinces}
+          nmbs={self.state.nmbs}
+          loading={self.state.fetching}
+          func={() => {
+            self.setState({rendering: true}, () => self.showProvinces(self.state, () => self.setState({rendering: false})));
+          }}/>
+        <div id="mapid">
+          <Dimmer active={this.state.rendering}>
+            <Loader />
+          </Dimmer>
+        </div>
+      </div>
+    );
   }
 }
+
+//<div className="ui checkbox toggle">
+//  <input type="checkbox" name={province} id={province} value={self.state.provinces[province].shown}/>
+//  <label>{province}</label>
+//</div>
 
 export default InteractiveMap;
