@@ -8,6 +8,7 @@ import ProvinceCheckbox from './ProvinceCheckbox/ProvinceCheckbox';
 
 class InteractiveMap extends Component {
 
+  /* Icons & icon constants */
   iconAnchor = [12, 41];
   popupAnchor = [0, -40]; // Popup above the marker icon
 
@@ -42,12 +43,16 @@ class InteractiveMap extends Component {
       departureStop: {id: "", newMarker: undefined, originalMarker: undefined},
       arrivalStop: {id: "", newMarker: undefined, originalMarker: undefined},
       provinces: {
-        "Oost-Vlaanderen": {
-          url: "https://belgium.linkedconnections.org/delijn/Oost-Vlaanderen/stops",
+        "Antwerpen": {
+          url: "https://belgium.linkedconnections.org/delijn/Antwerpen/stops",
           markers: undefined, stops: new Set(), shown: false
         },
         "Limburg": {
           url: "https://belgium.linkedconnections.org/delijn/Limburg/stops",
+          markers: undefined, stops: new Set(), shown: false
+        },
+        "Oost-Vlaanderen": {
+          url: "https://belgium.linkedconnections.org/delijn/Oost-Vlaanderen/stops",
           markers: undefined, stops: new Set(), shown: false
         },
         "West-Vlaanderen": {
@@ -56,10 +61,6 @@ class InteractiveMap extends Component {
         },
         "Vlaams-Brabant": {
           url: "https://belgium.linkedconnections.org/delijn/Vlaams-Brabant/stops",
-          markers: undefined, stops: new Set(), shown: false
-        },
-        "Antwerpen": {
-          url: "https://belgium.linkedconnections.org/delijn/Antwerpen/stops",
           markers: undefined, stops: new Set(), shown: false
         },
       },
@@ -73,11 +74,11 @@ class InteractiveMap extends Component {
     const self = this;
     const {markerLayer, provinces, nmbs, stations} = this.state;
 
+    // Setup the map
     const map = L.map('mapid').setView([50.90, 5.2], 9);
     map.options.loadingControl = true;
-    this.setState({map: map});
-
     map.closePopupOnClick = true;
+    this.setState({map: map});
     L.tileLayer('https://{s}.tile.thunderforest.com/transport/{z}/{x}/{y}.png?apikey=f2488a35b11044e4844692095875c9ce', {
       attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(map);
@@ -141,52 +142,66 @@ class InteractiveMap extends Component {
     markers[key].on("mouseover", () => markers[key].openPopup());
   }
 
+  /**
+   * Render the markers for the given provence
+   * @param province
+   */
   renderMarkers(province) {
     const {markers, stations, nmbs} = this.state;
     const p = province !== undefined;
     const group = L.layerGroup();
 
+    // Other values for NMBS
     const type = p ? province : nmbs;
     const subLabel = p ? 'De Lijn' : 'NMBS';
 
+    // Create a marker for every stop of the province.
     for (const sID of type.stops) {
       const stop = stations[sID];
       let id = sID.split('/');
       id = id[id.length - 1];
       this.createMarker(stop, '<strong>' + stop.name + '</strong><br> ' + subLabel + '<br>ID: ' + id);
+
+      // Add the created marker to the group.
       markers[sID].markerGroup = group;
       group.addLayer(markers[sID]);
     }
+    // Set the province's/NMBS markers to the created group
     type.markers = group;
+
+    if (province) {
+      let name = province.url.split('/');
+      console.log(name[name.length - 2], group);
+    }
   }
 
-  showProvinces(state, callback) {
+  /**
+   * Show or hide the province.
+   *   Render the markers if needed and add them to the markerLayer.
+   *   Remove the markers from the markerLayer if needed.
+   * Run the callback function.
+   * @param state
+   * @param provinceName
+   * @param callback
+   */
+  showProvinces(state, provinceName, callback) {
     const {nmbs, provinces, markerLayer} = state;
-
-    // Handle each province
-    for (const key of Object.keys(provinces)) {
-      const p = provinces[key];
-      if (p.shown) {
-        // Render the markers if needed
-        if (p.markers === undefined) {
-          this.renderMarkers(p);
-        }
-        // Show the markers on the map
-        markerLayer.addLayer(p.markers);
-      } else if (p.markers !== undefined) {
-        // Remove the markers if needed
-        markerLayer.removeLayer(p.markers);
-      }
+    let p = provinces[provinceName], source = p;
+    if (p === undefined) { // NMBS
+      source = undefined;
+      p = nmbs;
     }
 
-    // Handle the NMBS markers seperately
-    if (nmbs.shown) {
-      if (nmbs.markers === undefined) {
-        this.renderMarkers(undefined);
-      }
-      markerLayer.addLayer(nmbs.markers);
-    } else if (nmbs.markers !== undefined) {
-      markerLayer.removeLayer(nmbs.markers);
+    if (p.shown) {
+      // Render the markers if needed
+      if (p.markers === undefined)
+        this.renderMarkers(source);
+
+      // Show the markers on the map
+      markerLayer.addLayer(p.markers);
+    } else if (p.markers !== undefined) {
+      // Remove the markers if needed
+      markerLayer.removeLayer(p.markers);
     }
     callback();
   }
@@ -216,8 +231,7 @@ class InteractiveMap extends Component {
    */
   selectStop(key, departure) {
     const {map, stations, markers, arrivalStop, markerLayer} = this.state;
-    const station = stations[key];
-    const original = markers[key];
+    const station = stations[key], original = markers[key];
     const icon = departure ? this.greenIcon : this.redIcon;
 
     const newStop = {
@@ -226,16 +240,23 @@ class InteractiveMap extends Component {
       originalMarker: original
     };
 
-    this.setState(departure ? {departureStop: newStop} : {arrivalStop: newStop});
+    // Add popup and functions to new marker
     newStop.newMarker.bindPopup(stations[key].label);
     newStop.newMarker.on("click", () => this.deselect(key));
     newStop.newMarker.on("mouseover", () => newStop.newMarker.openPopup());
+
+    // Remove the original marker from the province layer and from the markerLayer
+    markerLayer.removeLayer(original);
     original.markerGroup.removeLayer(original);
 
-    if ((departure && arrivalStop.id !== "") || !departure) {
-      map.removeLayer(markerLayer);
-    }
+    // Update the state
+    this.setState(departure ? {departureStop: newStop} : {arrivalStop: newStop});
 
+    // Hide the marker layer if both departure and arrival are selected
+    if ((departure && arrivalStop.id !== "") || !departure)
+      map.removeLayer(markerLayer);
+
+    // Set the contents of the text fields
     const fieldID = departure ? "departure-field" : "arrival-field";
     document.getElementById(fieldID).setAttribute("value", station.name);
   }
@@ -263,23 +284,36 @@ class InteractiveMap extends Component {
   deselectStop(departure) {
     const {map, departureStop, arrivalStop, markerLayer} = this.state;
     const stop = departure ? departureStop : arrivalStop;
-    const newStop = {id: "", newMarker: undefined, originalMarker: undefined};
+    const emptyStop = {id: "", newMarker: undefined, originalMarker: undefined};
+    const original = stop.originalMarker;
 
+    // Remove the marker from the map
     map.removeLayer(stop.newMarker);
-    stop.originalMarker.markerGroup.addLayer(stop.originalMarker);
-    this.setState(departure ? {departureStop: newStop} : {arrivalStop: newStop});
 
-    if ((departure && arrivalStop.id !== "") || !departure) {
-      map.addLayer(markerLayer);
-    }
+    // Add the original marker back to the province layer and the markerLayer
+    markerLayer.addLayer(original);
+    original.markerGroup.addLayer(original);
 
+    // Update the state
+    this.setState(departure ? {departureStop: emptyStop} : {arrivalStop: emptyStop});
+
+    // Show the marker layer
+    map.addLayer(markerLayer);
+
+    // Remove the contents of the text fields
     const fieldID = departure ? "departure-field" : "arrival-field";
     document.getElementById(fieldID).setAttribute("value", "");
   }
 
-  update(self) {
+  /**
+   * Update the given province.
+   * Set the rendering icon and show/hide the province if needed.
+   * @param self: used to call the right functions
+   * @param province: the province to show/hide
+   */
+  update(self, province) {
     self.setState({rendering: true});
-    self.showProvinces(self.state, () => self.setState({rendering: false}));
+    self.showProvinces(self.state, province, () => self.setState({rendering: false}));
   }
 
   render() {
@@ -304,7 +338,7 @@ class InteractiveMap extends Component {
           provinces={self.state.provinces}
           nmbs={self.state.nmbs}
           loading={self.state.fetching}
-          func={() => self.update(self)} />
+          func={(e) => self.update(self, e.target.name)}/>
         <div id="mapid">
           <Dimmer active={this.state.rendering}>
             <Loader/>
