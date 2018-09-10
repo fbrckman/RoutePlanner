@@ -25,5 +25,5 @@ package-lock.json
 # JetBrains
 .idea
 
-# Temp
-/aid
+# Babel Editor
+*.babel

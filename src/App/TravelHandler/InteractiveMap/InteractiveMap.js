@@ -3,7 +3,7 @@ import 'whatwg-fetch';
 import L from 'leaflet';
 import 'leaflet.markercluster';
 import './InteractiveMap.css';
-import {Form, Dimmer, Loader, Input, Icon} from 'semantic-ui-react';
+import {Dimmer, Loader} from 'semantic-ui-react';
 import ProvinceCheckbox from './ProvinceCheckbox/ProvinceCheckbox';
 
 class InteractiveMap extends Component {
@@ -44,8 +44,6 @@ class InteractiveMap extends Component {
       markers: {},
       markerLayer: L.markerClusterGroup(),
       map: undefined,
-      departureStop: {id: "", newMarker: undefined, originalMarker: undefined},
-      arrivalStop: {id: "", newMarker: undefined, originalMarker: undefined},
       provinces: {
         "Antwerpen": {
           url: "https://belgium.linkedconnections.org/delijn/Antwerpen/stops",
@@ -216,7 +214,7 @@ class InteractiveMap extends Component {
    * @param key:string
    */
   select(key) {
-    const {departureStop, arrivalStop} = this.state;
+    const {departureStop, arrivalStop} = this.props;
 
     if (departureStop.id === this.DEFAULT_ID) {
       // Select the clicked station as the new departureStop
@@ -239,7 +237,8 @@ class InteractiveMap extends Component {
    * @param lng:number, Longitude of the stop if it's a custom location
    */
   selectStop(self, key, departure, customLocation = false, lat = 0, lng = 0) {
-    const {map, stations, markers, arrivalStop, markerLayer} = self.state;
+    const {map, stations, markers, markerLayer} = self.state;
+    const {arrivalStop, handler} = self.props;
     const station = stations[key], original = markers[key];
     const icon = departure ? self.greenIcon : self.redIcon;
 
@@ -290,7 +289,7 @@ class InteractiveMap extends Component {
     }
 
     // Update the state
-    self.setState(departure ? {departureStop: newStop} : {arrivalStop: newStop});
+    self.props.setStopCallback(handler, newStop, departure);
 
     // Hide the marker layer if both departure and arrival are selected
     if ((departure && arrivalStop.id !== self.DEFAULT_ID) || !departure)
@@ -306,7 +305,8 @@ class InteractiveMap extends Component {
    * @param customLocation:boolean, true if the stop has a custom location and is not a predefined stop
    */
   deselectStop(departure, customLocation = false) {
-    const {map, departureStop, arrivalStop, markerLayer} = this.state;
+    const {map, markerLayer} = this.state;
+    const {departureStop, arrivalStop, handler} = this.props;
     const stop = departure ? departureStop : arrivalStop;
     const emptyStop = {id: this.DEFAULT_ID, newMarker: undefined, originalMarker: undefined};
 
@@ -324,7 +324,7 @@ class InteractiveMap extends Component {
     map.addLayer(markerLayer);
 
     // Update the state
-    this.setState(departure ? {departureStop: emptyStop} : {arrivalStop: emptyStop});
+    this.props.setStopCallback(handler, emptyStop, departure);
 
     InteractiveMap.setFieldVal(departure, "");
   }
@@ -353,7 +353,7 @@ class InteractiveMap extends Component {
   }
 
   onMapClick(e, self) {
-    const departure = self.state.departureStop.id === self.DEFAULT_ID;
+    const departure = self.props.departureStop.id === self.DEFAULT_ID;
     self.selectStop(self, self.CUSTOM_ID, departure, true, e.latlng.lat, e.latlng.lng);
   }
 
@@ -361,27 +361,9 @@ class InteractiveMap extends Component {
 
   render() {
     const self = this;
-    const {departureStop, arrivalStop, provinces, nmbs, rendering, fetching} = this.state;
+    const {provinces, nmbs, rendering, fetching} = this.state;
     return (
       <div>
-        <Form onSubmit={() => console.log("Calculating...")}>
-          <div className="ui segment">
-            <Form.Group className="inline">
-              <Form.Field className="inline">
-                <Input icon={<Icon name='map marker alternate' color='green'/>}
-                       label="Starting point" id="departure-field" name="departure-stop"
-                       placeholder="No station selected." type="text"/>
-              </Form.Field>
-              <Form.Field className="inline">
-                <Input icon={<Icon name='map marker alternate' color='red'/>} label="Destination"
-                       id="arrival-field" name="arrival-stop" placeholder="No station selected" type="text"/>
-              </Form.Field>
-              <Form.Field>
-                <Form.Button content="Submit" disabled={departureStop.id === "" || arrivalStop.id === ""}/>
-              </Form.Field>
-            </Form.Group>
-          </div>
-        </Form>
         <ProvinceCheckbox
           provinces={provinces} nmbs={nmbs} loading={fetching} func={(e) => self.update(self, e.target.name)}/>
         <div id="mapid">

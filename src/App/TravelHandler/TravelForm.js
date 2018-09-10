@@ -1,6 +1,6 @@
 import React, {Component} from 'react';
 import DateTime from 'react-datetime';
-import {Form, Select} from 'semantic-ui-react';
+import {Form, Select, Input, Icon} from 'semantic-ui-react';
 
 const options = [
   {key: "a", text: "Arrival", value: "arrival"},
@@ -57,6 +57,7 @@ class TravelForm extends Component {
 
   render() {
     const {type, submit} = this.state;
+    const {departureStop, arrivalStop} = this.props;
     const dt = this.state.datetime, m = dt.getMinutes();
     // TODO internationalization
     const dateString = dt.getDate() + '-' + (dt.getMonth() + 1) + '-' + dt.getFullYear(),
@@ -75,6 +76,21 @@ class TravelForm extends Component {
                         inputProps={{placeholder: timeString, format: 'HH:mm'}}
                         name='time' onChange={this.handleTimeChange}/>
             <Form.Button content='Submit'/>
+          </Form.Group>
+
+          <Form.Group className="inline">
+            <Form.Field className="inline">
+              <Input icon={<Icon name='map marker alternate' color='green'/>}
+                     label="Starting point" id="departure-field" name="departure-stop"
+                     placeholder="No station selected." type="text"/>
+            </Form.Field>
+            <Form.Field className="inline">
+              <Input icon={<Icon name='map marker alternate' color='red'/>} label="Destination"
+                     id="arrival-field" name="arrival-stop" placeholder="No station selected" type="text"/>
+            </Form.Field>
+            <Form.Field>
+              <Form.Button content="Submit" disabled={departureStop.id === "" || arrivalStop.id === ""}/>
+            </Form.Field>
           </Form.Group>
         </Form>
         <p hidden={!submit}>
