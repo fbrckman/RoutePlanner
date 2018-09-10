@@ -8,6 +8,8 @@ import ProvinceCheckbox from './ProvinceCheckbox/ProvinceCheckbox';
 
 class InteractiveMap extends Component {
 
+  popup;
+
   /* Icons & icon constants */
   iconAnchor = [12, 41];
   popupAnchor = [0, -40]; // Popup above the marker icon
@@ -78,6 +80,8 @@ class InteractiveMap extends Component {
     const map = L.map('mapid').setView([50.90, 5.2], 9);
     map.options.loadingControl = true;
     map.closePopupOnClick = true;
+    this.popup = L.popup();
+    map.on("click", (e) => self.onMapClick(e, self));
     this.setState({map: map});
     L.tileLayer('https://{s}.tile.thunderforest.com/transport/{z}/{x}/{y}.png?apikey=f2488a35b11044e4844692095875c9ce', {
       attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
@@ -125,6 +129,8 @@ class InteractiveMap extends Component {
 
     map.addLayer(markerLayer);
   }
+
+  /* Markers & Rendering -------------------------------------------------------------------------------------------- */
 
   /**
    * Create a marker for the given station with the given label.
@@ -206,6 +212,8 @@ class InteractiveMap extends Component {
     callback();
   }
 
+  /* (De)Selecting -------------------------------------------------------------------------------------------------- */
+
   /**
    * Triggers the selection of the stop with the given key.
    * @param key:string
@@ -242,7 +250,7 @@ class InteractiveMap extends Component {
 
     // Add popup and functions to new marker
     newStop.newMarker.bindPopup(stations[key].label);
-    newStop.newMarker.on("click", () => this.deselect(key));
+    newStop.newMarker.on("click", () => this.deselectStop(departure));
     newStop.newMarker.on("mouseover", () => newStop.newMarker.openPopup());
 
     // Remove the original marker from the province layer and from the markerLayer
@@ -256,22 +264,35 @@ class InteractiveMap extends Component {
     if ((departure && arrivalStop.id !== "") || !departure)
       map.removeLayer(markerLayer);
 
-    // Set the contents of the text fields
-    const fieldID = departure ? "departure-field" : "arrival-field";
-    document.getElementById(fieldID).setAttribute("value", station.name);
+    InteractiveMap.setFieldVal(departure, station.name);
   }
 
-  /**
-   * Triggers the deselection of the stop with the given key.
-   * @param key:string
-   */
-  deselect(key) {
-    const {departureStop, arrivalStop} = this.state;
-    if (departureStop.id === key) {
-      this.deselectStop(true);
-    } else if (arrivalStop.id === key) {
-      this.deselectStop(false);
+  selectLocation(lat, lng, departure) {
+    const {map, arrivalStop, markerLayer} = this.state;
+    const icon = departure ? this.greenIcon : this.redIcon;
+
+    if (!departure && arrivalStop.id !== "") {
+      map.removeLayer(arrivalStop.newMarker);
     }
+
+    const newStop = {
+      id: "location",
+      newMarker: L.marker([lat, lng]).setIcon(icon).addTo(map),
+      originalMarker: undefined,
+    };
+
+    newStop.newMarker.bindPopup("<strong>Lat:</strong> " + lat + "<br><strong>Lng:</strong> " + lng);
+    newStop.newMarker.on("click", () => this.deselectLocation(departure));
+    newStop.newMarker.on("mouseover", () => newStop.newMarker.openPopup());
+
+    // Update the state
+    this.setState(departure ? {departureStop: newStop} : {arrivalStop: newStop});
+
+    // Hide the marker layer if both departure and arrival are selected
+    if ((departure && arrivalStop.id !== "") || !departure)
+      map.removeLayer(markerLayer);
+
+    InteractiveMap.setFieldVal(departure, "LatLng");
   }
 
   /**
@@ -293,16 +314,41 @@ class InteractiveMap extends Component {
     // Add the original marker back to the province layer and the markerLayer
     markerLayer.addLayer(original);
     original.markerGroup.addLayer(original);
+    // Show the marker layer
+    map.addLayer(markerLayer);
 
     // Update the state
     this.setState(departure ? {departureStop: emptyStop} : {arrivalStop: emptyStop});
 
+    InteractiveMap.setFieldVal(departure, "");
+  }
+
+  deselectLocation(departure) {
+    const {map, departureStop, arrivalStop, markerLayer} = this.state;
+    const stop = departure ? departureStop : arrivalStop;
+    const emptyStop = {id: "", newMarker: undefined, originalMarker: undefined};
+
+    // Remove the marker from the map
+    map.removeLayer(stop.newMarker);
     // Show the marker layer
     map.addLayer(markerLayer);
 
-    // Remove the contents of the text fields
+    // Update the state
+    this.setState(departure ? {departureStop: emptyStop} : {arrivalStop: emptyStop});
+
+    InteractiveMap.setFieldVal(departure, "");
+  }
+
+  /* Misc. ---------------------------------------------------------------------------------------------------------- */
+
+  /**
+   * Set the content of the text field.
+   * @param departure:boolean, indicates if the departure field should be addressed
+   * @param content:string, the new value of the text field
+   */
+  static setFieldVal(departure, content) {
     const fieldID = departure ? "departure-field" : "arrival-field";
-    document.getElementById(fieldID).setAttribute("value", "");
+    document.getElementById(fieldID).setAttribute("value", content);
   }
 
   /**
@@ -315,6 +361,13 @@ class InteractiveMap extends Component {
     self.setState({rendering: true});
     self.showProvinces(self.state, province, () => self.setState({rendering: false}));
   }
+
+  onMapClick(e, self) {
+    const departure = self.state.departureStop.id === "";
+    self.selectLocation(e.latlng.lat, e.latlng.lng, departure);
+  }
+
+  /* Render --------------------------------------------------------------------------------------------------------- */
 
   render() {
     const self = this;
