@@ -176,11 +176,6 @@ class InteractiveMap extends Component {
     }
     // Set the province's/NMBS markers to the created group
     type.markers = group;
-
-    if (province) {
-      let name = province.url.split('/');
-      console.log(name[name.length - 2], group);
-    }
   }
 
   /**
@@ -296,7 +291,6 @@ class InteractiveMap extends Component {
 
     // Update the state
     self.setState(departure ? {departureStop: newStop} : {arrivalStop: newStop});
-    console.log("new ArrivalStop:", self.state.arrivalStop);
 
     // Hide the marker layer if both departure and arrival are selected
     if ((departure && arrivalStop.id !== self.DEFAULT_ID) || !departure)
