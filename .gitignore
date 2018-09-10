@@ -24,3 +24,6 @@ package-lock.json
 
 # JetBrains
 .idea
+
+# Temp
+/aid
