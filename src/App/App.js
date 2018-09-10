@@ -8,7 +8,6 @@ class App extends Component {
   render() {
     return (
       <div className="App">
-        <script src="../../../../node-modules/leaflet-loading/Control.Loading.js"/>
         <TravelForm/>
         <InteractiveMap/>
       </div>
