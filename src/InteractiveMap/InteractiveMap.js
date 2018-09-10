@@ -285,7 +285,7 @@ class InteractiveMap extends Component {
           .update();
       });
 
-      InteractiveMap.setFieldVal(departure, "LatLng");
+      InteractiveMap.setFieldVal(departure, '± ' + lat.toFixed(3) + ', ± ' + lng.toFixed(3));
     } else {
       // Remove the original marker from the province layer and from the markerLayer
       markerLayer.removeLayer(original);
