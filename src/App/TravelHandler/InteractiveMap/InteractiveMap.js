@@ -43,24 +43,32 @@ class InteractiveMap extends Component {
       stations: {},
       markers: {},
       markerLayer: L.markerClusterGroup(),
+      lines: {},
+      route: {},
       map: undefined,
       nmbs: {
-        markers: undefined, stops: new Set(), shown: true,
+        markers: undefined, stops: new Set(), shown: false,
       }
     };
+
+    this.showProvinces = this.showProvinces.bind(this);
+    this.selectStop = this.selectStop.bind(this);
+    this.update = this.update.bind(this);
+    this.onMapClick = this.onMapClick.bind(this);
   }
 
   componentDidMount() {
     const self = this;
+    this.props.onRef(this);
     const {markerLayer, nmbs, stations} = this.state;
     const {provinces} = this.props;
 
     // Setup the map
-    const map = L.map('mapid').setView([50.90, 5.2], 9);
+    const map = L.map('mapid').setView([50.85, 4.35, 5.2], 8);
     map.options.loadingControl = true;
     map.closePopupOnClick = true;
     this.popup = L.popup();
-    map.on("click", (e) => InteractiveMap.onMapClick(e, self));
+    map.on("click", (e) => this.onMapClick(e));
     this.setState({map: map});
     L.tileLayer('https://{s}.tile.thunderforest.com/transport/{z}/{x}/{y}.png?apikey=f2488a35b11044e4844692095875c9ce', {
       attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
@@ -98,7 +106,7 @@ class InteractiveMap extends Component {
           fetched += 1;
           if (fetched === Object.keys(provinces).length) {
             self.setState({fetching: false});
-            self.update(self);
+            self.update(province);
           }
         });
       }
@@ -107,6 +115,10 @@ class InteractiveMap extends Component {
     });
 
     map.addLayer(markerLayer);
+  }
+
+  componentWillUnmount() {
+    this.props.onRef(undefined);
   }
 
   /* Markers & Rendering -------------------------------------------------------------------------------------------- */
@@ -161,11 +173,12 @@ class InteractiveMap extends Component {
    *   Remove the markers from the markerLayer if needed.
    * Run the callback function.
    * @param state
+   * @param props
    * @param provinceName
    * @param callback
    */
-  showProvinces(state, props, provinceName, callback) {
-    const {nmbs, markerLayer} = state;
+  showProvinces(props, provinceName, callback) {
+    const {nmbs, markerLayer} = this.state;
     const {provinces} = props;
     let p = provinces[provinceName], source = p;
     if (p === undefined) { // NMBS
@@ -198,10 +211,10 @@ class InteractiveMap extends Component {
 
     if (departureStop.id === this.DEFAULT_ID) {
       // Select the clicked station as the new departureStop
-      this.selectStop(this, key, true);
+      this.selectStop(key, true);
     } else if (arrivalStop.id === this.DEFAULT_ID && key !== departureStop.id) {
       // Select the clicked station as the new arrivalStop
-      this.selectStop(this, key, false);
+      this.selectStop(key, false);
     }
   }
 
@@ -209,21 +222,20 @@ class InteractiveMap extends Component {
    * Select the stop with the given key.
    * Add the stop to the state, remove the old marker from the markerLayer and add a new colored marker to the map.
    * Remove the markerLayer if needed.
-   * @param self = this
    * @param key:string
    * @param departure:boolean, true if the stop is a departureStop
    * @param customLocation:boolean, true if the stop has a custom location and is not a predefined stop
    * @param lat:number, Latitude of the stop if it's a custom location
    * @param lng:number, Longitude of the stop if it's a custom location
    */
-  selectStop(self, key, departure, customLocation = false, lat = 0, lng = 0) {
-    const {map, stations, markers, markerLayer} = self.state;
-    const {arrivalStop, handler} = self.props;
+  selectStop(key, departure, customLocation = false, lat = 0, lng = 0) {
+    const {map, stations, markers, markerLayer} = this.state;
+    const {arrivalStop, handler} = this.props;
     const station = stations[key], original = markers[key];
-    const icon = departure ? self.greenIcon : self.redIcon;
+    const icon = departure ? this.greenIcon : this.redIcon;
 
-    if (!departure && arrivalStop.id !== self.DEFAULT_ID) {
-      if (arrivalStop.id !== self.CUSTOM_ID) { // arrivalStop is a predefined stop
+    if (!departure && arrivalStop.id !== this.DEFAULT_ID) {
+      if (arrivalStop.id !== this.CUSTOM_ID) { // arrivalStop is a predefined stop
         // Add the original marker back to its group and to the markerLayer
         arrivalStop.originalMarker.markerGroup.addLayer(arrivalStop.originalMarker);
         markerLayer.addLayer(arrivalStop.originalMarker);
@@ -246,7 +258,7 @@ class InteractiveMap extends Component {
 
     // Add popup and functions to new marker
     newStop.newMarker.bindPopup(label);
-    newStop.newMarker.on("click", () => self.deselectStop(departure, customLocation));
+    newStop.newMarker.on("click", () => this.deselectStop(departure, customLocation));
     newStop.newMarker.on("mouseover", () => newStop.newMarker.openPopup());
 
     if (customLocation) {
@@ -269,10 +281,10 @@ class InteractiveMap extends Component {
     }
 
     // Update the state
-    self.props.setStopCallback(handler, newStop, departure);
+    this.props.setStopCallback(handler, newStop, departure);
 
     // Hide the marker layer if both departure and arrival are selected
-    if ((departure && arrivalStop.id !== self.DEFAULT_ID) || !departure)
+    if ((departure && arrivalStop.id !== this.DEFAULT_ID) || !departure)
       map.removeLayer(markerLayer);
   }
 
@@ -309,6 +321,19 @@ class InteractiveMap extends Component {
     InteractiveMap.setFieldVal(departure, "");
   }
 
+  /* Polylines  ----------------------------------------------------------------------------------------------------- */
+
+  drawConnection(connection) {
+    console.log("drawConnection");
+    const startPosition = this.stations[connection.departureStop].point,
+          endPosition = this.stations[connection.arrivalStop].point;
+    console.log(startPosition, endPosition);
+  }
+
+  drawResult(connections) {
+
+  }
+
   /* Misc. ---------------------------------------------------------------------------------------------------------- */
 
   /**
@@ -324,29 +349,27 @@ class InteractiveMap extends Component {
   /**
    * Update the given province.
    * Set the rendering icon and show/hide the province if needed.
-   * @param self: used to call the right functions
    * @param province: the province to show/hide
    */
-  update(self, province) {
-    self.setState({rendering: true});
-    self.showProvinces(self.state, self.props, province, () => self.setState({rendering: false}));
+  update(province) {
+    this.setState({rendering: true});
+    this.showProvinces(this.props, province, () => this.setState({rendering: false}));
   }
 
   /**
    * Function executed when the map is clicked.
    * Creates a marker on the clicked location.
    * @param e: the click event
-   * @param self: used to call the right functions
    */
-  static onMapClick(e, self) {
-    const departure = self.props.departureStop.id === self.DEFAULT_ID;
-    self.selectStop(self, self.CUSTOM_ID, departure, true, e.latlng.lat, e.latlng.lng);
+  onMapClick(e) {
+    // TODO enable custom locations
+    // const departure = this.props.departureStop.id === this.DEFAULT_ID;
+    // this.selectStop(this, this.CUSTOM_ID, departure, true, e.latlng.lat, e.latlng.lng);
   }
 
   /* Render --------------------------------------------------------------------------------------------------------- */
 
   render() {
-    const self = this;
     const {nmbs, rendering, fetching} = this.state;
     const {provinces} = this.props;
     return (
@@ -354,7 +377,7 @@ class InteractiveMap extends Component {
         <Grid divided columns='equal'>
           <Grid.Column width={3}>
             <ProvinceCheckbox
-              provinces={provinces} nmbs={nmbs} loading={fetching} func={(e) => self.update(self, e.target.name)}
+              provinces={provinces} nmbs={nmbs} loading={fetching} func={(e) => this.update(e.target.name)}
             />
           </Grid.Column>
           <Grid.Column>

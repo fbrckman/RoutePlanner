@@ -7,32 +7,33 @@ import Calculator from './Calculator';
 class TravelHandler extends Component {
 
   provinces = {
-    "Antwerpen": {
-      stopsUrl: "https://belgium.linkedconnections.org/delijn/Antwerpen/stops",
-      connectionsUrl: "https://belgium.linkedconnections.org/delijn/Antwerpen/connections",
-      markers: undefined, stops: new Set(), shown: false
-    },
-    "Limburg": {
-      stopsUrl: "https://belgium.linkedconnections.org/delijn/Limburg/stops",
-      connectionsUrl: "https://belgium.linkedconnections.org/delijn/Limburg/connections",
-      markers: undefined, stops: new Set(), shown: false
-    },
+    // "Antwerpen": {
+    //   stopsUrl: "https://belgium.linkedconnections.org/delijn/Antwerpen/stops",
+    //   connectionsUrl: "https://belgium.linkedconnections.org/delijn/Antwerpen/connections",
+    //   markers: undefined, stops: new Set(), shown: false
+    // },
+    // "Limburg": {
+    //   stopsUrl: "https://belgium.linkedconnections.org/delijn/Limburg/stops",
+    //   connectionsUrl: "https://belgium.linkedconnections.org/delijn/Limburg/connections",
+    //   markers: undefined, stops: new Set(), shown: false
+    // },
     "Oost-Vlaanderen": {
       stopsUrl: "https://belgium.linkedconnections.org/delijn/Oost-Vlaanderen/stops",
       connectionsUrl: "https://belgium.linkedconnections.org/delijn/Oost-Vlaanderen/connections",
       markers: undefined, stops: new Set(), shown: false
     },
-    "West-Vlaanderen": {
-      stopsUrl: "https://belgium.linkedconnections.org/delijn/West-Vlaanderen/stops",
-      connectionsUrl: "https://belgium.linkedconnections.org/delijn/West-Vlaanderen/connections",
-      markers: undefined, stops: new Set(), shown: false
-    },
-    "Vlaams-Brabant": {
-      stopsUrl: "https://belgium.linkedconnections.org/delijn/Vlaams-Brabant/stops",
-      connectionsUrl: "https://belgium.linkedconnections.org/delijn/Vlaams-Brabant/connections",
-      markers: undefined, stops: new Set(), shown: false
-    },
+    // "West-Vlaanderen": {
+    //   stopsUrl: "https://belgium.linkedconnections.org/delijn/West-Vlaanderen/stops",
+    //   connectionsUrl: "https://belgium.linkedconnections.org/delijn/West-Vlaanderen/connections",
+    //   markers: undefined, stops: new Set(), shown: false
+    // },
+    // "Vlaams-Brabant": {
+    //   stopsUrl: "https://belgium.linkedconnections.org/delijn/Vlaams-Brabant/stops",
+    //   connectionsUrl: "https://belgium.linkedconnections.org/delijn/Vlaams-Brabant/connections",
+    //   markers: undefined, stops: new Set(), shown: false
+    // },
   };
+  map;
 
   constructor() {
     super();
@@ -42,8 +43,8 @@ class TravelHandler extends Component {
       datetime: new Date(),
       latest: new Date(),
       departure: false,
-      calculator: new Calculator(this.getConnectionsUrls()),
-    }
+      calculator: new Calculator(this.getConnectionsUrls(), this.handleConnection, this.handleResult),
+    };
   }
 
   getStopUrls() {
@@ -53,12 +54,22 @@ class TravelHandler extends Component {
     }
     return output;
   }
+
   getConnectionsUrls() {
     const output = [];
     for (const p of Object.values(this.provinces)) {
       output.push(p.connectionsUrl);
     }
     return output;
+  }
+
+  handleConnection(connection) {
+    console.log("handleConnection", connection.departureStop, connection.arrivalStop);
+    this.refs.map.drawConnection(connection);
+  }
+
+  handleResult(result) {
+    this.refs.map.drawResult(result);
   }
 
   static setStop(self, newStop, departure) {
@@ -83,20 +94,22 @@ class TravelHandler extends Component {
   }
 
   render() {
+    const {departureStop, arrivalStop} = this.state;
     return (
       <div>
         <Segment>
           <TravelForm handler={this}
-                      departureStop={this.state.departureStop}
-                      arrivalStop={this.state.arrivalStop}
+                      departureStop={departureStop}
+                      arrivalStop={arrivalStop}
                       setDataCallback={TravelHandler.setData}
           />
         </Segment>
         <Segment>
-          <InteractiveMap handler={this}
+          <InteractiveMap onRef={ref => (this.map = ref)}
+                          handler={this}
                           provinces={this.provinces}
-                          departureStop={this.state.departureStop}
-                          arrivalStop={this.state.arrivalStop}
+                          departureStop={departureStop}
+                          arrivalStop={arrivalStop}
                           setStopCallback={TravelHandler.setStop}
           />
         </Segment>
