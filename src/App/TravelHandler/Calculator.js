@@ -1,13 +1,13 @@
 /** See https://github.com/linkedconnections/client.js/tree/feature-delijn **/
 
-import * as lc from 'lc-client';
+import Client from 'lc-client';
 
 class Calculator {
 
   planner;
 
   constructor(entrypoints) {
-    this.planner = new lc.Client({"entrypoints" : entrypoints});
+    this.planner = new Client({"entrypoints" : entrypoints});
   }
 
   query(arrivalStop, departureStop, departureTime, latestDepartureTime, searchTimeOut = 10000) {
@@ -19,7 +19,7 @@ class Calculator {
       "searchTimeOut" : searchTimeOut,
     }, function (resultStream, source) {
       resultStream.on('result', function (path) {
-        console.log(path);
+        console.log("RESULT:", path);
       });
 
       resultStream.on('data', function (connection) {

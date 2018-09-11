@@ -44,28 +44,6 @@ class InteractiveMap extends Component {
       markers: {},
       markerLayer: L.markerClusterGroup(),
       map: undefined,
-      provinces: {
-        "Antwerpen": {
-          url: "https://belgium.linkedconnections.org/delijn/Antwerpen/stops",
-          markers: undefined, stops: new Set(), shown: false
-        },
-        "Limburg": {
-          url: "https://belgium.linkedconnections.org/delijn/Limburg/stops",
-          markers: undefined, stops: new Set(), shown: false
-        },
-        "Oost-Vlaanderen": {
-          url: "https://belgium.linkedconnections.org/delijn/Oost-Vlaanderen/stops",
-          markers: undefined, stops: new Set(), shown: false
-        },
-        "West-Vlaanderen": {
-          url: "https://belgium.linkedconnections.org/delijn/West-Vlaanderen/stops",
-          markers: undefined, stops: new Set(), shown: false
-        },
-        "Vlaams-Brabant": {
-          url: "https://belgium.linkedconnections.org/delijn/Vlaams-Brabant/stops",
-          markers: undefined, stops: new Set(), shown: false
-        },
-      },
       nmbs: {
         markers: undefined, stops: new Set(), shown: true,
       }
@@ -74,7 +52,8 @@ class InteractiveMap extends Component {
 
   componentDidMount() {
     const self = this;
-    const {markerLayer, provinces, nmbs, stations} = this.state;
+    const {markerLayer, nmbs, stations} = this.state;
+    const {provinces} = this.props;
 
     // Setup the map
     const map = L.map('mapid').setView([50.90, 5.2], 9);
@@ -103,7 +82,7 @@ class InteractiveMap extends Component {
 
       // De Lijn
       for (let province of Object.keys(provinces)) {
-        window.fetch(provinces[province].url).then(function (response) {
+        window.fetch(provinces[province].stopsUrl).then(function (response) {
           return response.json();
         }).then(function (stopsDeLijn) {
           console.log(province, "fetched");
@@ -185,8 +164,9 @@ class InteractiveMap extends Component {
    * @param provinceName
    * @param callback
    */
-  showProvinces(state, provinceName, callback) {
-    const {nmbs, provinces, markerLayer} = state;
+  showProvinces(state, props, provinceName, callback) {
+    const {nmbs, markerLayer} = state;
+    const {provinces} = props;
     let p = provinces[provinceName], source = p;
     if (p === undefined) { // NMBS
       source = undefined;
@@ -349,7 +329,7 @@ class InteractiveMap extends Component {
    */
   update(self, province) {
     self.setState({rendering: true});
-    self.showProvinces(self.state, province, () => self.setState({rendering: false}));
+    self.showProvinces(self.state, self.props, province, () => self.setState({rendering: false}));
   }
 
   /**
@@ -367,7 +347,8 @@ class InteractiveMap extends Component {
 
   render() {
     const self = this;
-    const {provinces, nmbs, rendering, fetching} = this.state;
+    const {nmbs, rendering, fetching} = this.state;
+    const {provinces} = this.props;
     return (
       <div>
         <Grid divided columns='equal'>
