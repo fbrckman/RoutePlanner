@@ -44,16 +44,17 @@ class TravelForm extends Component {
 
   checkInput() {
     const {departure, datetime, latest} = this.state;
-    if (departure) {
-      this.setState({error: datetime.getTime() > latest.getTime()});
-    } else {
-      this.setState({error: datetime.getTime() < latest.getTime()});
-    }
+    const error = departure
+      ? datetime.getTime() > latest.getTime()
+      : datetime.getTime() < latest.getTime();
+    this.setState({error: error});
+    return error;
   }
 
   handleChange = (e, {name, value}) => {
     this.setState({submit: false, [name]: value});
-    this.updateLatest(this.state.datetime, value);
+    if (!this.state.customLatest)
+      this.updateLatest(this.state.datetime, value);
   };
 
   updateLatest(newDateTime, departure) {
@@ -73,20 +74,23 @@ class TravelForm extends Component {
 
     if (!customLatest && !setLatest)
       this.updateLatest(newDT, departure);
-
-    this.checkInput();
   }
 
   static handleSubmit(self) {
-    console.log("Datetime: ", self.state.datetime);
-    self.setState({submit: true});
+    const error = self.checkInput();
+    if (!error) {
+      console.log("Datetime: ", self.state.datetime);
+      self.setState({submit: true});
+    } else {
+      console.log("[ERROR] See form.");
+    }
   };
 
   render() {
     const self = this;
     const {departure, submit, datetime, latest, customLatest, error} = this.state;
     const {departureStop, arrivalStop} = this.props;
-    const valid = departureStop.id !== "" && arrivalStop.id !== "" && !error;
+    const valid = departureStop.id !== "" && arrivalStop.id !== "";
     const message = 'Please make sure that the latest moment of departure is ';
 
     // TODO internationalization
@@ -112,19 +116,18 @@ class TravelForm extends Component {
                 <label>Latest time of departure</label>
               </div>
             </Form.Field>
-            <Form.Field control={DateTime} dateFormat="DD-MM-YYYY" timeFormat={false} value={latest}
+            <Form.Field control={DateTime} dateFormat="DD-MM-YYYY" timeFormat={false} value={latest} error={error}
                         disabled={!customLatest} inputProps={{format: 'DD-MM-YYYY'}} name='latestDate'
                         onChange={(e) => self.handleDateTimeChange(e, true, false)}/>
-            <Form.Field control={DateTime} dateFormat={false} timeFormat="HH:mm" value={latest}
+            <Form.Field control={DateTime} dateFormat={false} timeFormat="HH:mm" value={latest} error={error}
                         disabled={!customLatest} inputProps={{format: 'HH:mm'}} name='latestTime'
                         onChange={(e) => self.handleDateTimeChange(e, true, true)}/>
           </Form.Group>
 
           <Message error visible={error}
                    header='Invalid date/time'
-                   content={message + (departure
-                     ? 'later than the moment of departure.'
-                     : 'earlier than the moment of arrival.')}
+                   content={message +
+                   (departure ? 'later than the moment of departure.' : 'earlier than the moment of arrival.')}
           />
 
           <Form.Group className="inline" widths="equal">
@@ -143,9 +146,10 @@ class TravelForm extends Component {
           </Form.Group>
         </Form>
 
+        {/* TODO Temp; remove this */}
         <p hidden={!submit}>
           You chose {options[this.state.departure].text.toLowerCase()}
-          at {datetime.toDateString()} {this.state.datetime.getHours()}:
+          &nbsp;at {datetime.toDateString()} {this.state.datetime.getHours()}:
           {datetime.getMinutes() < 10 ? '0' + datetime.getMinutes() : datetime.getMinutes()}
         </p>
       </div>

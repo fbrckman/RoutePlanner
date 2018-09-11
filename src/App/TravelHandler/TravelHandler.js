@@ -21,7 +21,6 @@ class TravelHandler extends Component {
     return (
       <div>
         <Segment>
-
           <TravelForm departureStop={this.state.departureStop} arrivalStop={this.state.arrivalStop}/>
         </Segment>
         <Segment>
