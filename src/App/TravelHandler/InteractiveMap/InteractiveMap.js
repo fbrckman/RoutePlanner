@@ -81,7 +81,7 @@ class InteractiveMap extends Component {
     map.options.loadingControl = true;
     map.closePopupOnClick = true;
     this.popup = L.popup();
-    map.on("click", (e) => self.onMapClick(e, self));
+    map.on("click", (e) => InteractiveMap.onMapClick(e, self));
     this.setState({map: map});
     L.tileLayer('https://{s}.tile.thunderforest.com/transport/{z}/{x}/{y}.png?apikey=f2488a35b11044e4844692095875c9ce', {
       attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
@@ -352,7 +352,13 @@ class InteractiveMap extends Component {
     self.showProvinces(self.state, province, () => self.setState({rendering: false}));
   }
 
-  onMapClick(e, self) {
+  /**
+   * Function executed when the map is clicked.
+   * Creates a marker on the clicked location.
+   * @param e: the click event
+   * @param self: used to call the right functions
+   */
+  static onMapClick(e, self) {
     const departure = self.props.departureStop.id === self.DEFAULT_ID;
     self.selectStop(self, self.CUSTOM_ID, departure, true, e.latlng.lat, e.latlng.lng);
   }

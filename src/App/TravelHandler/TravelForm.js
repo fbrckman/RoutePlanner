@@ -22,6 +22,12 @@ class TravelForm extends Component {
     };
   }
 
+  /**
+   * Set the full date of "to" to the full date of "from".
+   *
+   * @param from:Date, source of the full date (date, month, year)
+   * @param to:Date, date which has to be set
+   */
   static setFullDate(from, to) {
     to.setDate(from.getDate());
     to.setMonth(from.getMonth());
@@ -29,6 +35,13 @@ class TravelForm extends Component {
     return to;
   }
 
+  /**
+   * Set the time of "to" to the time of "from".
+   * Set the seconds and milliseconds to 0.
+   *
+   * @param from:Date, source of the time (hours, minutes)
+   * @param to:Date, time which has to be set
+   */
   static setTime(from, to) {
     to.setHours(from.getHours());
     to.setMinutes(from.getMinutes());
@@ -37,11 +50,22 @@ class TravelForm extends Component {
     return to;
   }
 
+  /**
+   * Add a number of hours to the given object.
+   *
+   * @param datetime:Date, the object used as a reference
+   * @param hours:number, the number of hours that has to be added
+   * @return Date
+   */
   static addHours(datetime, hours) {
     const difference = 3600000 * hours;
     return new Date(datetime.getTime() + difference);
   }
 
+  /**
+   * Check if the input is conform with the expected values.
+   * @return boolean: indicates if there are errors
+   */
   checkInput() {
     const {departure, datetime, latest} = this.state;
     const error = departure
@@ -51,17 +75,43 @@ class TravelForm extends Component {
     return error;
   }
 
+  /**
+   * Set the state accordingly to the given values.
+   * Used to set the "departure" to the given value.
+   * Update the latestDepartureTime if needed.
+   *
+   * @param e:event, triggered the function
+   * @param name:string
+   * @param value:boolean
+   */
   handleChange = (e, {name, value}) => {
     this.setState({submit: false, [name]: value});
     if (!this.state.customLatest)
       this.updateLatest(this.state.datetime, value);
   };
 
+  /**
+   * Update the latestDepartureTime according the given values.
+   * If the current travel time is departure, the new latestDepartureTime will be 2 hours after the current datetime.
+   * Otherwise, the new latestDepartureTime will be 2 hours before the current datetime.
+   *
+   * @param newDateTime: the new datetime object, used as a reference to create the new latestDepartureTime
+   * @param departure:boolean, true if the current travel type is departure
+   */
   updateLatest(newDateTime, departure) {
     const newLatest = TravelForm.addHours(newDateTime, departure ? 2 : -2);
     this.setState({latest: newLatest});
   }
 
+  /**
+   * Set the date and time of the wanted object to the given values.
+   * Update the state accordingly.
+   * Update the latestDepartureTime if needed.
+   *
+   * @param e:event, triggered the function
+   * @param setLatest:boolean, true if the latestDepartureTime should be set instead of the datetime
+   * @param time:boolean, true if the time should be set instead of the full date
+   */
   handleDateTimeChange(e, setLatest = false, time = false) {
     const {departure, customLatest, latest, datetime} = this.state;
     this.setState({submit: false});
@@ -76,11 +126,22 @@ class TravelForm extends Component {
       this.updateLatest(newDT, departure);
   }
 
+  /**
+   * Check if the input is conform with the expected values.
+   * If there are no errors, use the callback to set the state of the parent component.
+   * Otherwise, "error" in state will be set, causing the form to become invalid.
+   *
+   * @param self, used to call the right functions
+   */
   static handleSubmit(self) {
     const error = self.checkInput();
+    const {handler, setDataCallback} = self.props;
+    const {datetime, latest, departure} = self.state;
+
     if (!error) {
       console.log("Datetime: ", self.state.datetime);
       self.setState({submit: true});
+      setDataCallback(handler, datetime, latest, departure);
     } else {
       console.log("[ERROR] See form.");
     }
