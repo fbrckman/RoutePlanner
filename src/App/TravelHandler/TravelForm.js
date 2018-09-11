@@ -20,6 +20,8 @@ class TravelForm extends Component {
       submit: false,
       error: false,
     };
+
+    this.handleSubmit = this.handleSubmit.bind(this);
   }
 
   /**
@@ -130,17 +132,15 @@ class TravelForm extends Component {
    * Check if the input is conform with the expected values.
    * If there are no errors, use the callback to set the state of the parent component.
    * Otherwise, "error" in state will be set, causing the form to become invalid.
-   *
-   * @param self, used to call the right functions
    */
-  static handleSubmit(self) {
-    const error = self.checkInput();
-    const {handler, setDataCallback} = self.props;
-    const {datetime, latest, departure} = self.state;
+  handleSubmit() {
+    const error = this.checkInput();
+    const {handler, setDataCallback} = this.props;
+    const {datetime, latest, departure} = this.state;
 
     if (!error) {
-      console.log("Datetime: ", self.state.datetime);
-      self.setState({submit: true});
+      console.log("Datetime: ", this.state.datetime);
+      this.setState({submit: true});
       setDataCallback(handler, datetime, latest, departure);
     } else {
       console.log("[ERROR] See form.");
@@ -157,16 +157,16 @@ class TravelForm extends Component {
     // TODO internationalization
     return (
       <div>
-        <Form onSubmit={() => TravelForm.handleSubmit(self)}>
+        <Form onSubmit={this.handleSubmit}>
           <Form.Group className="inline" widths="equal">
             <Form.Field control={Select} options={Object.values(options)} placeholder='Choose an option...'
                         name='departure' value={departure} onChange={this.handleChange}/>
             <Form.Field control={DateTime} dateFormat="DD-MM-YYYY" timeFormat={false} value={datetime}
                         inputProps={{format: 'DD-MM-YYYY'}} name='date'
-                        onChange={(e) => self.handleDateTimeChange(e)}/>
+                        onChange={(e) => this.handleDateTimeChange(e)}/>
             <Form.Field control={DateTime} dateFormat={false} timeFormat="HH:mm" value={datetime}
                         inputProps={{format: 'HH:mm'}} name='time'
-                        onChange={(e) => self.handleDateTimeChange(e, false, true)}/>
+                        onChange={(e) => this.handleDateTimeChange(e, false, true)}/>
           </Form.Group>
 
           <Form.Group className="inline" widths="equal">
@@ -179,10 +179,10 @@ class TravelForm extends Component {
             </Form.Field>
             <Form.Field control={DateTime} dateFormat="DD-MM-YYYY" timeFormat={false} value={latest} error={error}
                         disabled={!customLatest} inputProps={{format: 'DD-MM-YYYY'}} name='latestDate'
-                        onChange={(e) => self.handleDateTimeChange(e, true, false)}/>
+                        onChange={(e) => this.handleDateTimeChange(e, true, false)}/>
             <Form.Field control={DateTime} dateFormat={false} timeFormat="HH:mm" value={latest} error={error}
                         disabled={!customLatest} inputProps={{format: 'HH:mm'}} name='latestTime'
-                        onChange={(e) => self.handleDateTimeChange(e, true, true)}/>
+                        onChange={(e) => this.handleDateTimeChange(e, true, true)}/>
           </Form.Group>
 
           <Message error visible={error}

@@ -51,8 +51,17 @@ class InteractiveMap extends Component {
       }
     };
 
+    this.createMarker = this.createMarker.bind(this);
+    this.renderMarkers = this.renderMarkers.bind(this);
     this.showProvinces = this.showProvinces.bind(this);
+
+    this.select = this.select.bind(this);
     this.selectStop = this.selectStop.bind(this);
+    this.deselectStop = this.deselectStop.bind(this);
+
+    this.drawConnection = this.drawConnection.bind(this);
+    this.drawResult = this.drawResult.bind(this);
+
     this.update = this.update.bind(this);
     this.onMapClick = this.onMapClick.bind(this);
   }
@@ -172,7 +181,6 @@ class InteractiveMap extends Component {
    *   Render the markers if needed and add them to the markerLayer.
    *   Remove the markers from the markerLayer if needed.
    * Run the callback function.
-   * @param state
    * @param props
    * @param provinceName
    * @param callback
@@ -229,8 +237,9 @@ class InteractiveMap extends Component {
    * @param lng:number, Longitude of the stop if it's a custom location
    */
   selectStop(key, departure, customLocation = false, lat = 0, lng = 0) {
+    // const self = this;
     const {map, stations, markers, markerLayer} = this.state;
-    const {arrivalStop, handler} = this.props;
+    const {arrivalStop} = this.props;
     const station = stations[key], original = markers[key];
     const icon = departure ? this.greenIcon : this.redIcon;
 
@@ -281,7 +290,7 @@ class InteractiveMap extends Component {
     }
 
     // Update the state
-    this.props.setStopCallback(handler, newStop, departure);
+    this.props.setStopCallback(newStop, departure);
 
     // Hide the marker layer if both departure and arrival are selected
     if ((departure && arrivalStop.id !== this.DEFAULT_ID) || !departure)
@@ -298,7 +307,7 @@ class InteractiveMap extends Component {
    */
   deselectStop(departure, customLocation = false) {
     const {map, markerLayer} = this.state;
-    const {departureStop, arrivalStop, handler} = this.props;
+    const {departureStop, arrivalStop} = this.props;
     const stop = departure ? departureStop : arrivalStop;
     const emptyStop = {id: this.DEFAULT_ID, newMarker: undefined, originalMarker: undefined};
 
@@ -316,7 +325,7 @@ class InteractiveMap extends Component {
     map.addLayer(markerLayer);
 
     // Update the state
-    this.props.setStopCallback(handler, emptyStop, departure);
+    this.props.setStopCallback(emptyStop, departure);
 
     InteractiveMap.setFieldVal(departure, "");
   }

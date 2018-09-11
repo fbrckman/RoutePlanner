@@ -12,6 +12,8 @@ class Calculator {
     this.planner = new Client({"entrypoints": entrypoints});
     this.connectionCallback = connectionCallback;
     this.resultCallback = resultCallback;
+
+    this.query = this.query.bind(this);
   }
 
   query(arrivalStop, departureStop, departureTime, latestDepartureTime, searchTimeOut = 10000) {
@@ -30,7 +32,7 @@ class Calculator {
       });
 
       resultStream.on('data', function (connection) {
-        // console.log("Connection:", connection);
+        console.log("Connection:", connection);
         self.connectionCallback(connection);
         // If you're not interested anymore, you can stop the processing by doing this
         // if (stop_condition) {

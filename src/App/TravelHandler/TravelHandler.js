@@ -45,6 +45,9 @@ class TravelHandler extends Component {
       departure: false,
       calculator: new Calculator(this.getConnectionsUrls(), this.handleConnection, this.handleResult),
     };
+
+    this.setStop = this.setStop.bind(this);
+    this.setData = this.setData.bind(this);
   }
 
   getStopUrls() {
@@ -72,14 +75,14 @@ class TravelHandler extends Component {
     this.refs.map.drawResult(result);
   }
 
-  static setStop(self, newStop, departure) {
-    self.setState(departure ? {departureStop: newStop} : {arrivalStop: newStop});
+  setStop(newStop, departure) {
+    this.setState(departure ? {departureStop: newStop} : {arrivalStop: newStop});
   }
 
-  static setData(self, datetime, latest, departure) {
-    const {arrivalStop, departureStop, calculator} = self.state;
+  setData(datetime, latest, departure) {
+    const {arrivalStop, departureStop, calculator} = this.state;
     console.log("Setting data...");
-    self.setState({
+    this.setState({
       datetime: datetime,
       latest: latest,
       departure: departure,
@@ -101,16 +104,15 @@ class TravelHandler extends Component {
           <TravelForm handler={this}
                       departureStop={departureStop}
                       arrivalStop={arrivalStop}
-                      setDataCallback={TravelHandler.setData}
+                      setDataCallback={this.setData}
           />
         </Segment>
         <Segment>
           <InteractiveMap onRef={ref => (this.map = ref)}
-                          handler={this}
                           provinces={this.provinces}
                           departureStop={departureStop}
                           arrivalStop={arrivalStop}
-                          setStopCallback={TravelHandler.setStop}
+                          setStopCallback={this.setStop}
           />
         </Segment>
       </div>
