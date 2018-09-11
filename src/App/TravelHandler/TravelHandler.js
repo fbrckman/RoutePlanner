@@ -1,6 +1,7 @@
 import React, {Component} from 'react';
-import TravelForm from "./TravelForm";
-import InteractiveMap from "./InteractiveMap/InteractiveMap";
+import {Segment} from 'semantic-ui-react';
+import TravelForm from './TravelForm';
+import InteractiveMap from './InteractiveMap/InteractiveMap';
 
 class TravelHandler extends Component {
 
@@ -19,11 +20,16 @@ class TravelHandler extends Component {
   render() {
     return (
       <div>
-        <TravelForm departureStop={this.state.departureStop} arrivalStop={this.state.arrivalStop}/>
-        <InteractiveMap handler={this}
-                        departureStop={this.state.departureStop}
-                        arrivalStop={this.state.arrivalStop}
-                        setStopCallback={TravelHandler.setStop}/>
+        <Segment>
+
+          <TravelForm departureStop={this.state.departureStop} arrivalStop={this.state.arrivalStop}/>
+        </Segment>
+        <Segment>
+          <InteractiveMap handler={this}
+                          departureStop={this.state.departureStop}
+                          arrivalStop={this.state.arrivalStop}
+                          setStopCallback={TravelHandler.setStop}/>
+        </Segment>
       </div>
     );
   }

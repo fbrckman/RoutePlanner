@@ -3,7 +3,7 @@ import 'whatwg-fetch';
 import L from 'leaflet';
 import 'leaflet.markercluster';
 import './InteractiveMap.css';
-import {Dimmer, Loader} from 'semantic-ui-react';
+import {Dimmer, Loader, Grid} from 'semantic-ui-react';
 import ProvinceCheckbox from './ProvinceCheckbox/ProvinceCheckbox';
 
 class InteractiveMap extends Component {
@@ -364,13 +364,20 @@ class InteractiveMap extends Component {
     const {provinces, nmbs, rendering, fetching} = this.state;
     return (
       <div>
-        <ProvinceCheckbox
-          provinces={provinces} nmbs={nmbs} loading={fetching} func={(e) => self.update(self, e.target.name)}/>
-        <div id="mapid">
-          <Dimmer active={rendering}>
-            <Loader/>
-          </Dimmer>
-        </div>
+        <Grid divided columns='equal'>
+          <Grid.Column width={3}>
+            <ProvinceCheckbox
+              provinces={provinces} nmbs={nmbs} loading={fetching} func={(e) => self.update(self, e.target.name)}
+            />
+          </Grid.Column>
+          <Grid.Column>
+            <div id="mapid">
+              <Dimmer active={rendering}>
+                <Loader/>
+              </Dimmer>
+            </div>
+          </Grid.Column>
+        </Grid>
       </div>
     );
   }
