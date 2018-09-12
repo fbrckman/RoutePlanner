@@ -5,7 +5,7 @@ import Client from 'lc-client';
 class Calculator {
 
   handler;
-  planner;
+  planners;
   calculationCancelled;
 
   connectionCallback;
@@ -16,7 +16,10 @@ class Calculator {
     this.calculationCancelled = false;
 
     this.handler = handler;
-    this.planner = new Client({"entrypoints": entrypoints});
+    this.planners = {};
+    for (const province of Object.keys(entrypoints)) {
+      this.planners[province] = new Client({"entrypoints": [entrypoints[province].connectionsUrl]});
+    }
     this.connectionCallback = connectionCallback;
     this.resultCallback = resultCallback;
     this.finishCalculatingCallback = finishCalculatingCallback;
@@ -27,10 +30,12 @@ class Calculator {
     })
   }
 
-  query(arrivalStop, departureStop, departureTime, latestDepartureTime, searchTimeOut = 10000) {
+  query(province, arrivalStop, departureStop, departureTime, latestDepartureTime, searchTimeOut = 1000) {
     const self = this;
+    const planner = this.planners[province];
+    this.calculationCancelled = false;
 
-    this.planner.query({
+    planner.query({
       "arrivalStop": arrivalStop,
       "departureStop": departureStop,
       "departureTime": departureTime,
@@ -46,12 +51,6 @@ class Calculator {
 
       resultStream.on('data', function (connection) {
         self.connectionCallback(connection);
-
-        // If you're not interested anymore, you can stop the processing by doing this
-        if (self.calculationCancelled) {
-          console.log("--- Cancelled ---");
-          source.close();
-        }
       });
 
       // You can also count the number of HTTP requests done by the interface as follows
@@ -62,6 +61,10 @@ class Calculator {
       // You can also catch when a response is generated HTTP requests done by the interface as follows
       source.on('response', function (url) {
         // console.log('Response received for', url);
+        if (self.calculationCancelled) {
+          console.log("--- Cancelled ---");
+          this.close();
+        }
       });
     });
   }

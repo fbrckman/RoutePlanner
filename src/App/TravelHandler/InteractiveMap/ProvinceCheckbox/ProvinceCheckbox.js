@@ -13,7 +13,6 @@ class ProvinceCheckbox extends Component {
             <Form.Field key={province}>
               <div className="ui toggle checkbox">
                 <input type="checkbox" name={province} checked={provinces[province].shown}
-                       disabled={province !== "Oost-Vlaanderen"}
                        onChange={() => provinces[province].shown = !provinces[province].shown}/>
                 <label>{province}</label>
               </div>

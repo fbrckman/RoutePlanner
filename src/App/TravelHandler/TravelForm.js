@@ -1,6 +1,6 @@
 import React, {Component} from 'react';
 import DateTime from 'react-datetime';
-import {Form, Select, Input, Icon, Message} from 'semantic-ui-react';
+import {Form, Select, Input, Icon, Message, Button} from 'semantic-ui-react';
 
 const options = {
   false: {key: "a", text: "Arrival", value: false},
@@ -22,6 +22,7 @@ class TravelForm extends Component {
     };
 
     this.handleSubmit = this.handleSubmit.bind(this);
+    this.clear = this.clear.bind(this);
   }
 
   /**
@@ -147,6 +148,18 @@ class TravelForm extends Component {
     }
   };
 
+  clear() {
+    const now = new Date();
+    this.setState({
+      datetime: now,
+      latest: TravelForm.addHours(now, 2),
+      customLatest: false,
+      departure: true,
+      submit: false,
+      error: false,
+    });
+  }
+
   render() {
     const self = this;
     const {departure, submit, datetime, latest, customLatest, error} = this.state;
@@ -157,7 +170,7 @@ class TravelForm extends Component {
     // TODO internationalization
     return (
       <div>
-        <Form onSubmit={this.handleSubmit}>
+        <Form>
           <Form.Group className="inline" widths="equal">
             <Form.Field control={Select} options={Object.values(options)} placeholder='Choose an option...'
                         name='departure' value={departure} onChange={this.handleChange} disabled={true}/>
@@ -202,7 +215,12 @@ class TravelForm extends Component {
                      id="arrival-field" name="arrival-stop" placeholder="No station selected" type="text"/>
             </Form.Field>
             <Form.Field>
-              <Form.Button content="Submit" disabled={!valid}/>
+              <Button.Group>
+                <Button className="icon" onClick={this.clear} disabled={true}>
+                  <Icon name="undo alternate"/>
+                </Button>
+                <Button content="Submit" onClick={this.handleSubmit} disabled={!valid}/>
+              </Button.Group>
             </Form.Field>
           </Form.Group>
         </Form>

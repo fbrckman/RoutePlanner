@@ -7,31 +7,31 @@ import Calculator from './Calculator';
 class TravelHandler extends Component {
 
   provinces = {
-    // "Antwerpen": {
-    //   stopsUrl: "https://belgium.linkedconnections.org/delijn/Antwerpen/stops",
-    //   connectionsUrl: "https://belgium.linkedconnections.org/delijn/Antwerpen/connections",
-    //   markers: undefined, stops: new Set(), shown: false
-    // },
-    // "Limburg": {
-    //   stopsUrl: "https://belgium.linkedconnections.org/delijn/Limburg/stops",
-    //   connectionsUrl: "https://belgium.linkedconnections.org/delijn/Limburg/connections",
-    //   markers: undefined, stops: new Set(), shown: false
-    // },
+    "Antwerpen": {
+      stopsUrl: "https://belgium.linkedconnections.org/delijn/Antwerpen/stops",
+      connectionsUrl: "https://belgium.linkedconnections.org/delijn/Antwerpen/connections",
+      markers: undefined, stops: new Set(), shown: false
+    },
+    "Limburg": {
+      stopsUrl: "https://belgium.linkedconnections.org/delijn/Limburg/stops",
+      connectionsUrl: "https://belgium.linkedconnections.org/delijn/Limburg/connections",
+      markers: undefined, stops: new Set(), shown: false
+    },
     "Oost-Vlaanderen": {
       stopsUrl: "https://belgium.linkedconnections.org/delijn/Oost-Vlaanderen/stops",
       connectionsUrl: "https://belgium.linkedconnections.org/delijn/Oost-Vlaanderen/connections",
       markers: undefined, stops: new Set(), shown: false
     },
-    // "West-Vlaanderen": {
-    //   stopsUrl: "https://belgium.linkedconnections.org/delijn/West-Vlaanderen/stops",
-    //   connectionsUrl: "https://belgium.linkedconnections.org/delijn/West-Vlaanderen/connections",
-    //   markers: undefined, stops: new Set(), shown: false
-    // },
-    // "Vlaams-Brabant": {
-    //   stopsUrl: "https://belgium.linkedconnections.org/delijn/Vlaams-Brabant/stops",
-    //   connectionsUrl: "https://belgium.linkedconnections.org/delijn/Vlaams-Brabant/connections",
-    //   markers: undefined, stops: new Set(), shown: false
-    // },
+    "West-Vlaanderen": {
+      stopsUrl: "https://belgium.linkedconnections.org/delijn/West-Vlaanderen/stops",
+      connectionsUrl: "https://belgium.linkedconnections.org/delijn/West-Vlaanderen/connections",
+      markers: undefined, stops: new Set(), shown: false
+    },
+    "Vlaams-Brabant": {
+      stopsUrl: "https://belgium.linkedconnections.org/delijn/Vlaams-Brabant/stops",
+      connectionsUrl: "https://belgium.linkedconnections.org/delijn/Vlaams-Brabant/connections",
+      markers: undefined, stops: new Set(), shown: false
+    },
   };
 
   constructor() {
@@ -44,7 +44,7 @@ class TravelHandler extends Component {
       departure: false,
       calculator: new Calculator(
         this,
-        this.getConnectionsUrls(),
+        this.provinces,
         TravelHandler.handleConnection,
         TravelHandler.handleResult,
         TravelHandler.finishCalculating),
@@ -88,21 +88,27 @@ class TravelHandler extends Component {
 
   setData(datetime, latest, departure) {
     const {arrivalStop, departureStop, calculator} = this.state;
-    console.log("Setting data...");
-    console.log("Datetime:", datetime);
-    this.setState({
-      datetime: datetime,
-      latest: latest,
-      departure: departure,
-      calculating: true,
-    }, () => {
-      calculator.query(
-        arrivalStop.id,
-        departureStop.id,
-        datetime,
-        latest
-      );
-    })
+    const province = departureStop.province;
+    if (province === arrivalStop.province) {
+      console.log("Setting data...");
+      console.log("Datetime:", datetime);
+      this.setState({
+        datetime: datetime,
+        latest: latest,
+        departure: departure,
+        calculating: true,
+      }, () => {
+        calculator.query(
+          province,
+          arrivalStop.id,
+          departureStop.id,
+          datetime,
+          latest
+        );
+      })
+    } else {
+      console.error("These stops are from different provinces.");
+    }
   }
 
   render() {

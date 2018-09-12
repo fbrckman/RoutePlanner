@@ -110,6 +110,7 @@ class InteractiveMap extends Component {
             const key = stop["@id"];
             provinces[province].stops.add(key);
             stop.point = new L.LatLng(stop.latitude, stop.longitude);
+            stop.province = province;
             stations[key] = stop;
           });
 
@@ -137,10 +138,11 @@ class InteractiveMap extends Component {
       this.drawResult(event.detail.result);
     });
     window.addEventListener("submit", () => {
+      console.log("submit");
       this.clearLines();
       map.fitBounds(selectedStops.getBounds());
     });
-    window.addEventListener("cancel", () => this.clearLines());
+    window.addEventListener("cancel", this.clearLines);
   }
 
   /* Markers & Rendering -------------------------------------------------------------------------------------------- */
@@ -274,6 +276,7 @@ class InteractiveMap extends Component {
     // Create the new stop
     const newStop = {
       id: key,
+      province: stations[key].province,
       newMarker: L.marker(position, {draggable: customLocation}).setIcon(icon).addTo(map),
       originalMarker: original
     };
@@ -323,7 +326,7 @@ class InteractiveMap extends Component {
     const {map, markerLayer, selectedStops} = this.state;
     const {departureStop, arrivalStop} = this.props;
     const stop = departure ? departureStop : arrivalStop;
-    const emptyStop = {id: this.DEFAULT_ID, newMarker: undefined, originalMarker: undefined};
+    const emptyStop = {id: this.DEFAULT_ID, province: "", newMarker: undefined, originalMarker: undefined};
 
     if (!customLocation) {
       const original = stop.originalMarker;
@@ -372,7 +375,7 @@ class InteractiveMap extends Component {
   clearLines() {
     console.log("clearLines");
     const {map, lines} = this.state;
-    console.log(lines);
+    console.log(this.state);
     map.removeLayer(lines);
     this.setState({lines: L.layerGroup()});
   }
