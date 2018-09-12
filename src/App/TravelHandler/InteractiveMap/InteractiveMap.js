@@ -68,7 +68,6 @@ class InteractiveMap extends Component {
 
   componentDidMount() {
     const self = this;
-    this.props.onRef(this);
     const {markerLayer, nmbs, stations} = this.state;
     const {provinces} = this.props;
 
@@ -124,10 +123,15 @@ class InteractiveMap extends Component {
     });
 
     map.addLayer(markerLayer);
-  }
 
-  componentWillUnmount() {
-    this.props.onRef(undefined);
+    window.addEventListener("connection", (event) => {
+      console.log("connection");
+      this.drawConnection(event.detail.connection);
+    });
+    window.addEventListener("result", (event) => {
+      console.log("result");
+      this.drawResult(event.detail.result);
+    })
   }
 
   /* Markers & Rendering -------------------------------------------------------------------------------------------- */
@@ -290,6 +294,7 @@ class InteractiveMap extends Component {
     }
 
     // Update the state
+    console.log("setStop", newStop, departure);
     this.props.setStopCallback(newStop, departure);
 
     // Hide the marker layer if both departure and arrival are selected
@@ -311,6 +316,7 @@ class InteractiveMap extends Component {
     const stop = departure ? departureStop : arrivalStop;
     const emptyStop = {id: this.DEFAULT_ID, newMarker: undefined, originalMarker: undefined};
 
+    console.log(stop);
     if (!customLocation) {
       const original = stop.originalMarker;
       // Add the original marker back to the province layer and the markerLayer

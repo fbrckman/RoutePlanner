@@ -135,13 +135,13 @@ class TravelForm extends Component {
    */
   handleSubmit() {
     const error = this.checkInput();
-    const {handler, setDataCallback} = this.props;
+    const {setDataCallback} = this.props;
     const {datetime, latest, departure} = this.state;
 
     if (!error) {
       console.log("Datetime: ", this.state.datetime);
       this.setState({submit: true});
-      setDataCallback(handler, datetime, latest, departure);
+      setDataCallback(datetime, latest, departure);
     } else {
       console.log("[ERROR] See form.");
     }

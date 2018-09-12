@@ -33,7 +33,6 @@ class TravelHandler extends Component {
     //   markers: undefined, stops: new Set(), shown: false
     // },
   };
-  map;
 
   constructor() {
     super();
@@ -48,6 +47,20 @@ class TravelHandler extends Component {
 
     this.setStop = this.setStop.bind(this);
     this.setData = this.setData.bind(this);
+  }
+
+  handleConnection(connection) {
+    console.log("handleConnection");
+    window.dispatchEvent(new CustomEvent("connection", {
+      detail: {connection: connection}
+    }));
+  }
+
+  handleResult(result) {
+    console.log("handleResult");
+    window.dispatchEvent(new CustomEvent("result", {
+      detail: {result: result}
+    }));
   }
 
   getStopUrls() {
@@ -66,15 +79,6 @@ class TravelHandler extends Component {
     return output;
   }
 
-  handleConnection(connection) {
-    console.log("handleConnection", connection.departureStop, connection.arrivalStop);
-    this.refs.map.drawConnection(connection);
-  }
-
-  handleResult(result) {
-    this.refs.map.drawResult(result);
-  }
-
   setStop(newStop, departure) {
     this.setState(departure ? {departureStop: newStop} : {arrivalStop: newStop});
   }
@@ -82,6 +86,7 @@ class TravelHandler extends Component {
   setData(datetime, latest, departure) {
     const {arrivalStop, departureStop, calculator} = this.state;
     console.log("Setting data...");
+    console.log("Datetime:", datetime);
     this.setState({
       datetime: datetime,
       latest: latest,
@@ -108,8 +113,7 @@ class TravelHandler extends Component {
           />
         </Segment>
         <Segment>
-          <InteractiveMap onRef={ref => (this.map = ref)}
-                          provinces={this.provinces}
+          <InteractiveMap provinces={this.provinces}
                           departureStop={departureStop}
                           arrivalStop={arrivalStop}
                           setStopCallback={this.setStop}
