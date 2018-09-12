@@ -139,9 +139,9 @@ class TravelForm extends Component {
     const {datetime, latest, departure} = this.state;
 
     if (!error) {
-      console.log("Datetime: ", this.state.datetime);
       this.setState({submit: true});
       setDataCallback(datetime, latest, departure);
+      window.dispatchEvent(new CustomEvent("submit"));
     } else {
       console.log("[ERROR] See form.");
     }
@@ -160,7 +160,7 @@ class TravelForm extends Component {
         <Form onSubmit={this.handleSubmit}>
           <Form.Group className="inline" widths="equal">
             <Form.Field control={Select} options={Object.values(options)} placeholder='Choose an option...'
-                        name='departure' value={departure} onChange={this.handleChange}/>
+                        name='departure' value={departure} onChange={this.handleChange} disabled={true}/>
             <Form.Field control={DateTime} dateFormat="DD-MM-YYYY" timeFormat={false} value={datetime}
                         inputProps={{format: 'DD-MM-YYYY'}} name='date'
                         onChange={(e) => this.handleDateTimeChange(e)}/>

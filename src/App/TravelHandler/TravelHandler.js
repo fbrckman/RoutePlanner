@@ -1,5 +1,5 @@
 import React, {Component} from 'react';
-import {Segment} from 'semantic-ui-react';
+import {Segment, Loader, Grid, Button} from 'semantic-ui-react';
 import TravelForm from './TravelForm';
 import InteractiveMap from './InteractiveMap/InteractiveMap';
 import Calculator from './Calculator';
@@ -42,33 +42,36 @@ class TravelHandler extends Component {
       datetime: new Date(),
       latest: new Date(),
       departure: false,
-      calculator: new Calculator(this.getConnectionsUrls(), this.handleConnection, this.handleResult),
+      calculator: new Calculator(
+        this,
+        this.getConnectionsUrls(),
+        TravelHandler.handleConnection,
+        TravelHandler.handleResult,
+        TravelHandler.finishCalculating),
+      calculating: false,
     };
 
+    this.getConnectionsUrls = this.getConnectionsUrls.bind(this);
     this.setStop = this.setStop.bind(this);
     this.setData = this.setData.bind(this);
+    TravelHandler.finishCalculating = TravelHandler.finishCalculating.bind(this);
   }
 
-  handleConnection(connection) {
-    console.log("handleConnection");
+  static handleConnection(connection) {
     window.dispatchEvent(new CustomEvent("connection", {
       detail: {connection: connection}
     }));
   }
 
-  handleResult(result) {
-    console.log("handleResult");
+  static handleResult(result) {
     window.dispatchEvent(new CustomEvent("result", {
       detail: {result: result}
     }));
   }
 
-  getStopUrls() {
-    const output = [];
-    for (const p of Object.values(this.provinces)) {
-      output.push(p.stopsUrl);
-    }
-    return output;
+  static finishCalculating(self, result) {
+    console.log("Finishing calculation...");
+    self.setState({calculating: false});
   }
 
   getConnectionsUrls() {
@@ -91,6 +94,7 @@ class TravelHandler extends Component {
       datetime: datetime,
       latest: latest,
       departure: departure,
+      calculating: true,
     }, () => {
       calculator.query(
         arrivalStop.id,
@@ -102,15 +106,28 @@ class TravelHandler extends Component {
   }
 
   render() {
-    const {departureStop, arrivalStop} = this.state;
+    const {departureStop, arrivalStop, calculating} = this.state;
     return (
       <div>
         <Segment>
-          <TravelForm handler={this}
-                      departureStop={departureStop}
+          <TravelForm departureStop={departureStop}
                       arrivalStop={arrivalStop}
                       setDataCallback={this.setData}
           />
+        </Segment>
+        <Segment hidden={!calculating}>
+          <Grid className="middle aligned">
+            <Grid.Column>
+              <Loader active inline/>
+            </Grid.Column>
+            <Grid.Column>Calculating...</Grid.Column>
+            <Grid.Column floated='right'>
+              <Button onClick={() => {
+                window.dispatchEvent(new CustomEvent("cancel"));
+                this.setState({calculating: false});
+              }}>Cancel</Button>
+            </Grid.Column>
+          </Grid>
         </Segment>
         <Segment>
           <InteractiveMap provinces={this.provinces}

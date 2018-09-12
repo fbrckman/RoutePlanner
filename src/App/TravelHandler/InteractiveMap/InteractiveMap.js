@@ -10,6 +10,8 @@ class InteractiveMap extends Component {
 
   DEFAULT_ID = "";
   CUSTOM_ID = "CUSTOM";
+  CONNECTION_COLOR = "rgba(1, 1, 160, 0.75)";
+  RESULT_COLOR = "rgb(183, 0, 33)";
   popup;
 
   /* Icons & icon constants */
@@ -43,8 +45,9 @@ class InteractiveMap extends Component {
       stations: {},
       markers: {},
       markerLayer: L.markerClusterGroup(),
-      lines: {},
-      route: {},
+      selectedStops: L.featureGroup(),
+      lines: L.layerGroup(),
+      route: L.layerGroup(),
       map: undefined,
       nmbs: {
         markers: undefined, stops: new Set(), shown: false,
@@ -61,6 +64,7 @@ class InteractiveMap extends Component {
 
     this.drawConnection = this.drawConnection.bind(this);
     this.drawResult = this.drawResult.bind(this);
+    this.clearLines = this.clearLines.bind(this);
 
     this.update = this.update.bind(this);
     this.onMapClick = this.onMapClick.bind(this);
@@ -68,7 +72,7 @@ class InteractiveMap extends Component {
 
   componentDidMount() {
     const self = this;
-    const {markerLayer, nmbs, stations} = this.state;
+    const {markerLayer, nmbs, stations, selectedStops} = this.state;
     const {provinces} = this.props;
 
     // Setup the map
@@ -131,7 +135,12 @@ class InteractiveMap extends Component {
     window.addEventListener("result", (event) => {
       console.log("result");
       this.drawResult(event.detail.result);
-    })
+    });
+    window.addEventListener("submit", () => {
+      this.clearLines();
+      map.fitBounds(selectedStops.getBounds());
+    });
+    window.addEventListener("cancel", () => this.clearLines());
   }
 
   /* Markers & Rendering -------------------------------------------------------------------------------------------- */
@@ -242,7 +251,7 @@ class InteractiveMap extends Component {
    */
   selectStop(key, departure, customLocation = false, lat = 0, lng = 0) {
     // const self = this;
-    const {map, stations, markers, markerLayer} = this.state;
+    const {map, stations, markers, markerLayer, selectedStops} = this.state;
     const {arrivalStop} = this.props;
     const station = stations[key], original = markers[key];
     const icon = departure ? this.greenIcon : this.redIcon;
@@ -273,6 +282,7 @@ class InteractiveMap extends Component {
     newStop.newMarker.bindPopup(label);
     newStop.newMarker.on("click", () => this.deselectStop(departure, customLocation));
     newStop.newMarker.on("mouseover", () => newStop.newMarker.openPopup());
+    selectedStops.addLayer(newStop.newMarker);
 
     if (customLocation) {
       // Update position when dragging
@@ -294,7 +304,6 @@ class InteractiveMap extends Component {
     }
 
     // Update the state
-    console.log("setStop", newStop, departure);
     this.props.setStopCallback(newStop, departure);
 
     // Hide the marker layer if both departure and arrival are selected
@@ -311,12 +320,11 @@ class InteractiveMap extends Component {
    * @param customLocation:boolean, true if the stop has a custom location and is not a predefined stop
    */
   deselectStop(departure, customLocation = false) {
-    const {map, markerLayer} = this.state;
+    const {map, markerLayer, selectedStops} = this.state;
     const {departureStop, arrivalStop} = this.props;
     const stop = departure ? departureStop : arrivalStop;
     const emptyStop = {id: this.DEFAULT_ID, newMarker: undefined, originalMarker: undefined};
 
-    console.log(stop);
     if (!customLocation) {
       const original = stop.originalMarker;
       // Add the original marker back to the province layer and the markerLayer
@@ -326,6 +334,7 @@ class InteractiveMap extends Component {
 
     // Remove the marker from the map
     map.removeLayer(stop.newMarker);
+    selectedStops.removeLayer(stop.newMarker);
 
     // Show the marker layer
     map.addLayer(markerLayer);
@@ -339,14 +348,33 @@ class InteractiveMap extends Component {
   /* Polylines  ----------------------------------------------------------------------------------------------------- */
 
   drawConnection(connection) {
-    console.log("drawConnection");
-    const startPosition = this.stations[connection.departureStop].point,
-          endPosition = this.stations[connection.arrivalStop].point;
-    console.log(startPosition, endPosition);
+    const {stations, lines, map} = this.state;
+    const start = stations[connection.departureStop], end = stations[connection.arrivalStop];
+    if (start === undefined) {
+      console.error("Station (departure) is undefined:", connection.departureStop);
+    } else if (end === undefined) {
+      console.error("Station (arrival) is undefined:", connection.arrivalStop);
+    } else {
+      const startPosition = start.point,
+        endPosition = end.point;
+      const polyline = L.polyline([startPosition, endPosition], {color: this.CONNECTION_COLOR});
+      lines.addLayer(polyline);
+      map.addLayer(polyline);
+    }
   }
 
   drawResult(connections) {
+    for (const c of connections) {
+      console.log(c);
+    }
+  }
 
+  clearLines() {
+    console.log("clearLines");
+    const {map, lines} = this.state;
+    console.log(lines);
+    map.removeLayer(lines);
+    this.setState({lines: L.layerGroup()});
   }
 
   /* Misc. ---------------------------------------------------------------------------------------------------------- */

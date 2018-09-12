@@ -4,18 +4,31 @@ import Client from 'lc-client';
 
 class Calculator {
 
+  handler;
   planner;
+  calculationCancelled;
+
   connectionCallback;
   resultCallback;
+  finishCalculatingCallback;
 
-  constructor(entrypoints, connectionCallback, resultCallback) {
+  constructor(handler, entrypoints, connectionCallback, resultCallback, finishCalculatingCallback) {
+    this.calculationCancelled = false;
+
+    this.handler = handler;
     this.planner = new Client({"entrypoints": entrypoints});
+    this.connectionCallback = connectionCallback;
+    this.resultCallback = resultCallback;
+    this.finishCalculatingCallback = finishCalculatingCallback;
     this.query = this.query.bind(this);
+
+    window.addEventListener("cancel", () => {
+      this.calculationCancelled = true;
+    })
   }
 
   query(arrivalStop, departureStop, departureTime, latestDepartureTime, searchTimeOut = 10000) {
     const self = this;
-    console.log("departureTime:", departureTime);
 
     this.planner.query({
       "arrivalStop": arrivalStop,
@@ -24,28 +37,31 @@ class Calculator {
       "latestDepartTime": latestDepartureTime,
       "searchTimeOut": searchTimeOut,
     }, function (resultStream, source) {
+
       resultStream.on('result', function (path) {
         console.log("Result:", path);
+        self.finishCalculatingCallback(self.handler, path);
+        source.close();
       });
 
       resultStream.on('data', function (connection) {
-        console.log("Connection:", connection);
-        // self.connectionCallback(connection);
+        self.connectionCallback(connection);
+
         // If you're not interested anymore, you can stop the processing by doing this
-        // if (stop_condition) {
-        //   source.close();
-        // }
+        if (self.calculationCancelled) {
+          console.log("--- Cancelled ---");
+          source.close();
+        }
       });
 
-      //you can also count the number of HTTP requests done by the interface as follows
+      // You can also count the number of HTTP requests done by the interface as follows
       source.on('request', function (url) {
-        console.log('Requesting', url);
+        // console.log('Requesting', url);
       });
 
-      //you can also catch when a response is generated HTTP requests done by the interface as follows
+      // You can also catch when a response is generated HTTP requests done by the interface as follows
       source.on('response', function (url) {
-        console.log('Response received for', url);
-        // console.log('.');
+        // console.log('Response received for', url);
       });
     });
   }
