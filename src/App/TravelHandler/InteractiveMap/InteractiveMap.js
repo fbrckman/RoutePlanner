@@ -46,7 +46,7 @@ class InteractiveMap extends Component {
       markerLayer: L.markerClusterGroup(),
       selectedStops: L.featureGroup(),
       lines: L.layerGroup(),
-      route: L.layerGroup(),
+      route: L.featureGroup(),
       map: undefined,
       nmbs: {
         markers: undefined, stops: new Set(), shown: false,
@@ -57,12 +57,15 @@ class InteractiveMap extends Component {
     this.renderMarkers = this.renderMarkers.bind(this);
     this.showProvinces = this.showProvinces.bind(this);
 
+    this.drawPolyline = this.drawPolyline.bind(this);
+    this.drawConnection = this.drawConnection.bind(this);
+    this.drawResult = this.drawResult.bind(this);
+
     this.select = this.select.bind(this);
     this.selectStop = this.selectStop.bind(this);
     this.deselectStop = this.deselectStop.bind(this);
 
-    this.drawConnection = this.drawConnection.bind(this);
-    this.drawResult = this.drawResult.bind(this);
+    this.clearLayers = this.clearLayers.bind(this);
     this.clearCalculationLines = this.clearCalculationLines.bind(this);
     this.clearAllLines = this.clearAllLines.bind(this);
 
@@ -137,13 +140,13 @@ class InteractiveMap extends Component {
     });
     window.addEventListener("submit", () => {
       console.log("submit");
-      this.clearCalculationLines();
+      this.clearAllLines();
       map.fitBounds(selectedStops.getBounds());
     });
     window.addEventListener("cancel", this.clearCalculationLines);
   }
 
-  /* Markers & Rendering -------------------------------------------------------------------------------------------- */
+  /* Markers -------------------------------------------------------------------------------------------------------- */
 
   /**
    * Create a marker for the given station with the given label.
@@ -221,13 +224,77 @@ class InteractiveMap extends Component {
     callback();
   }
 
+  /* Polylines  ----------------------------------------------------------------------------------------------------- */
+
+  /**
+   * Draw a line on the given connection, from departureStop to arrivalStop.
+   * @param connection:object with departureStop and arrivalStop
+   * @param color:string
+   * @param weight:number
+   * @returns L.Polyline
+   */
+  drawPolyline(connection, color, weight) {
+    let polyline = undefined;
+    const {stations} = this.state;
+    const start = stations[connection.departureStop], end = stations[connection.arrivalStop];
+    if (start === undefined) {
+      console.error("Station (departure) is undefined:", connection.departureStop);
+    } else if (end === undefined) {
+      console.error("Station (arrival) is undefined:", connection.arrivalStop);
+    } else {
+      const startPosition = start.point, endPosition = end.point;
+      polyline = L.polyline([startPosition, endPosition], {color: color, weight: weight});
+    }
+    return polyline
+  }
+
+  /**
+   * Draw a line on the given connection, from departureStop to arrivalStop.
+   * These are rendered while calculating.
+   * @param connection:object with departureStop and arrivalStop
+   */
+  drawConnection(connection) {
+    const polyline = this.drawPolyline(connection, this.CONNECTION_COLOR, 2);
+    if (polyline) {
+      const {lines, map} = this.state;
+      lines.addLayer(polyline);
+      map.addLayer(polyline);
+    }
+  }
+
+  /**
+   * Draw the result on the given connections.
+   * Used when drawing the resulting route.
+   * This line is thicker and more colorful than the "calculating"-connections.
+   * For each route, the line gets another color.
+   * A popup with the name of the route will open on mousover.
+   * @param connections: array with connection objects
+   */
+  drawResult(connections) {
+    const {route, map} = this.state;
+    this.clearCalculationLines();
+    for (const c of connections) {
+      const polyline = this.drawPolyline(c, c.color, 4);
+      if (polyline) {
+        const name = c["http://vocab.gtfs.org/terms#headsign"].replace(/"/g, "");
+        polyline.bindPopup(name);
+        polyline.on("mouseover", () => polyline.openPopup());
+        route.addLayer(polyline);
+        map.addLayer(polyline);
+      }
+    }
+    map.fitBounds(route.getBounds());
+  }
+
   /* (De)Selecting -------------------------------------------------------------------------------------------------- */
 
   /**
    * Triggers the selection of the stop with the given key.
+   * Clear all drawn lines in the process.
    * @param key:string
    */
   select(key) {
+    this.clearAllLines();
     const {departureStop, arrivalStop} = this.props;
 
     if (departureStop.id === this.DEFAULT_ID) {
@@ -314,6 +381,7 @@ class InteractiveMap extends Component {
 
   /**
    * Deselect either the departureStop or the arrivalStop.
+   * Clear all drawn lines in the process.
    * Remove the selected marker from the map and add the original marker back to the markerLayer.
    * Reset the stop in the state.
    * Show the markerLayer if needed.
@@ -321,6 +389,8 @@ class InteractiveMap extends Component {
    * @param customLocation:boolean, true if the stop has a custom location and is not a predefined stop
    */
   deselectStop(departure, customLocation = false) {
+    this.clearAllLines();
+
     const {map, markerLayer, selectedStops} = this.state;
     const {departureStop, arrivalStop} = this.props;
     const stop = departure ? departureStop : arrivalStop;
@@ -346,61 +416,40 @@ class InteractiveMap extends Component {
     InteractiveMap.setFieldVal(departure, "");
   }
 
-  /* Polylines  ----------------------------------------------------------------------------------------------------- */
+  /* Clear --------------------------------------------------------------------------------------------------------- */
 
-  drawPolyline(connection, color, weight) {
-    let polyline = undefined;
-    const {stations} = this.state;
-    const start = stations[connection.departureStop], end = stations[connection.arrivalStop];
-    if (start === undefined) {
-      console.error("Station (departure) is undefined:", connection.departureStop);
-    } else if (end === undefined) {
-      console.error("Station (arrival) is undefined:", connection.arrivalStop);
-    } else {
-      const startPosition = start.point, endPosition = end.point;
-      polyline = L.polyline([startPosition, endPosition], {color: color, weight: weight});
-    }
-    return polyline
-  }
-
-  drawConnection(connection) {
-    const polyline = this.drawPolyline(connection, this.CONNECTION_COLOR, 2);
-    if (polyline) {
-      const {lines, map} = this.state;
-      lines.addLayer(polyline);
-      map.addLayer(polyline);
-    }
-  }
-
-  drawResult(connections) {
-    const {route, map} = this.state;
-    this.clearCalculationLines();
-    for (const c of connections) {
-      const polyline = this.drawPolyline(c, c.color, 4);
-      if (polyline) {
-        const name = c["http://vocab.gtfs.org/terms#headsign"].replace(/"/g, "");
-        polyline.bindPopup(name);
-        polyline.on("mouseover", () => polyline.openPopup());
-        route.addLayer(polyline);
-        map.addLayer(polyline);
+  /**
+   * Clear the given layers from the map.
+   * @param layers:LayerGroup
+   */
+  clearLayers(layers) {
+    const {map} = this.state;
+    layers = layers["_layers"];
+    if (layers && Object.keys(layers).length > 0) {
+      for (const l in layers) {
+        if (layers.hasOwnProperty(l)) {
+          const layer = layers[l];
+          map.removeLayer(layer);
+        }
       }
     }
   }
 
-  // TODO fixme
+  /**
+   * Clear the calculation lines from the map.
+   */
   clearCalculationLines() {
-    const {map, lines} = this.state;
-    console.log("Removing lines...", lines);
-    map.removeLayer(lines);
+    this.clearLayers(this.state.lines);
     this.setState({lines: L.layerGroup()});
   }
 
+  /**
+   * Clear the calculation lines and the route from the map.
+   */
   clearAllLines() {
-    const {map, route} = this.state;
     this.clearCalculationLines();
-    console.log("Removing route...", route);
-    map.removeLayer(route);
-    this.setState({route: L.layerGroup()});
+    this.clearLayers(this.state.route);
+    this.setState({route: L.featureGroup()});
   }
 
   /* Misc. ---------------------------------------------------------------------------------------------------------- */

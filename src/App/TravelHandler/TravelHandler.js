@@ -34,7 +34,7 @@ class TravelHandler extends Component {
       markers: undefined, stops: new Set(), shown: false
     },
   };
-  colors = ['red', 'cyan', 'yellow', 'pink', 'green', 'purple', 'orange', 'blue'];
+  colors = ['red', 'cyan', 'yellow', 'magenta', 'green', 'purple', 'orange', 'blue'];
 
   constructor() {
     super();
@@ -136,11 +136,15 @@ class TravelHandler extends Component {
       connection.color = colorSet[route];
     }
 
+    const routeUrl = "http://vocab.gtfs.org/terms#route", signUrl = "http://vocab.gtfs.org/terms#headsign";
+
     const parsedResult = [TravelHandler.cloneConnection(result[0])];
     let lastConnection = parsedResult[0];
+    lastConnection.name = lastConnection[signUrl].replace(/"/g, "");
 
     for (const connection of result.slice(0, -1)) {
-      if (connection["http://vocab.gtfs.org/terms#route"] === lastConnection["http://vocab.gtfs.org/terms#route"]) {
+      connection.name = connection[signUrl].replace(/"/g, "");
+      if (connection[routeUrl] === lastConnection[routeUrl] && connection.name === lastConnection.name) {
         lastConnection.arrivalStop = connection.arrivalStop;
         lastConnection.arrivalTime = connection.arrivalTime;
       } else {
@@ -189,8 +193,8 @@ class TravelHandler extends Component {
               <Loader active inline/>
             </Grid.Column>
             <Grid.Column width={8}>
-              <span>Calculating...</span>
-              <span style={{color: 'grey'}}>
+              <span>Calculating... </span>
+              <span style={{color: 'lightgrey'}}>
                 {minutes > 0 ? minutes === 1 ? '1 minute, ' : minutes + 'minutes, ' : ''}
                 {seconds} seconds
               </span>

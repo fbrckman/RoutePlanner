@@ -11,7 +11,8 @@ class RouteView extends Component {
         <Segment vertical>
           <Header as='h3'>Found Route</Header>
           {route.map(function (section) {
-            let color = section.color === 'cyan' ? 'teal' : section.color;
+            let color = section.color === 'cyan' ? 'teal'
+              : section.color === 'magenta' ? 'pink' : section.color;
             return (
               <div key={section["@id"]}>
                 <Segment>
