@@ -46,6 +46,7 @@ class InteractiveMap extends Component {
       selectedStops: L.featureGroup(),
       lines: L.layerGroup(),
       route: L.featureGroup(),
+      visibleLines: false,
       map: undefined,
       nmbs: {
         markers: undefined, stops: new Set(), shown: false,
@@ -242,6 +243,7 @@ class InteractiveMap extends Component {
     } else if (end === undefined) {
       console.error("Station (arrival) is undefined:", connection.arrivalStop);
     } else {
+      this.setState({visibleLines: true});
       const startPosition = start.point, endPosition = end.point;
       polyline = L.polyline([startPosition, endPosition], {color: color, weight: weight});
     }
@@ -284,7 +286,6 @@ class InteractiveMap extends Component {
       }
     }
     map.fitBounds(route.getBounds());
-    console.log(Object.keys(route["_layers"]).length);
   }
 
   /* (De)Selecting -------------------------------------------------------------------------------------------------- */
@@ -450,7 +451,7 @@ class InteractiveMap extends Component {
   clearAllLines() {
     this.clearCalculationLines();
     this.clearLayers(this.state.route);
-    this.setState({route: L.featureGroup()});
+    this.setState({route: L.featureGroup(), visibleLines: false});
   }
 
   /* Misc. ---------------------------------------------------------------------------------------------------------- */
@@ -489,15 +490,20 @@ class InteractiveMap extends Component {
   /* Render --------------------------------------------------------------------------------------------------------- */
 
   render() {
-    const {nmbs, rendering, fetching, route} = this.state;
+    const {nmbs, rendering, fetching, visibleLines} = this.state;
     const {provinces} = this.props;
     return (
       <div>
         <Grid divided columns='equal'>
           <Grid.Column width={3}>
-            <ProvinceCheckbox
-              provinces={provinces} nmbs={nmbs} loading={fetching} func={(e) => this.update(e.target.name)}
-            />
+            <Grid.Row>
+              <ProvinceCheckbox
+                provinces={provinces} nmbs={nmbs} loading={fetching} func={(e) => this.update(e.target.name)}
+              />
+            </Grid.Row>
+            <Grid.Row hidden={!visibleLines} align='center'>
+              <Button onClick={this.clearAllLines} content="Clear lines"/>
+            </Grid.Row>
           </Grid.Column>
           <Grid.Column>
             <Grid.Row>
@@ -506,9 +512,6 @@ class InteractiveMap extends Component {
                   <Loader/>
                 </Dimmer>
               </div>
-            </Grid.Row>
-            <Grid.Row hidden={Object.keys(route["_layers"]).length === 0}>
-              <Button onClick={this.clearAllLines} content="Clear lines"/>
             </Grid.Row>
           </Grid.Column>
         </Grid>

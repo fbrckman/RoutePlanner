@@ -30,7 +30,7 @@ class Calculator {
     })
   }
 
-  query(province, arrivalStop, departureStop, departureTime, latestDepartureTime, searchTimeOut = 1000) {
+  query(province, arrivalStop, departureStop, departureTime, latestDepartureTime, searchTimeOut = 10) {
     const self = this;
     const planner = this.planners[province];
     this.calculationCancelled = false;

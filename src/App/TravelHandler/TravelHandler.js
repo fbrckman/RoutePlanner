@@ -119,7 +119,7 @@ class TravelHandler extends Component {
     if (province === arrivalStop.province) { // TODO remove this if the calculator can handle cross-province-requests
       this.resetTimer();
       this.setState({
-        datetime: datetime, latest: latest, departure: departure, calculating: true,
+        datetime: datetime, latest: latest, departure: departure, calculating: true, route: undefined,
       }, () => {
         calculator.query(province, arrivalStop.id, departureStop.id, datetime, latest);
       })
