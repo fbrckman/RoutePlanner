@@ -7,13 +7,17 @@ class RouteView extends Component {
   render() {
     const {route} = this.props;
     if (route) {
+      const start = route[0], end = route[route.length - 1];
       return (
         <div>
           <Header as='h3'>Found Route</Header>
           <Grid columns={2}>
             <Grid.Row>
-              <Grid.Column><strong>Departure:</strong> {route[0].departureTime.toLocaleString()}</Grid.Column>
-              <Grid.Column><strong>Arrival:</strong> {route[route.length - 1].arrivalTime.toLocaleString()}
+              <Grid.Column>
+                <strong>Departure:</strong> {start.departureTime.toLocaleString()} at {start.departureStopName}
+              </Grid.Column>
+              <Grid.Column>
+                <strong>Arrival:</strong> {end.arrivalTime.toLocaleString()} at {end.arrivalStopName}
               </Grid.Column>
             </Grid.Row>
           </Grid>

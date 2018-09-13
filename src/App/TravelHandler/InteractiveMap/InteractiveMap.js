@@ -139,7 +139,6 @@ class InteractiveMap extends Component {
       this.drawResult(event.detail.result);
     });
     window.addEventListener("submit", () => {
-      console.log("submit");
       this.clearAllLines();
       map.fitBounds(selectedStops.getBounds());
     });
@@ -392,6 +391,7 @@ class InteractiveMap extends Component {
    */
   deselectStop(departure, customLocation = false) {
     this.clearAllLines();
+    window.dispatchEvent(new CustomEvent("cancel"));
 
     const {map, markerLayer, selectedStops} = this.state;
     const {departureStop, arrivalStop} = this.props;
@@ -491,14 +491,14 @@ class InteractiveMap extends Component {
 
   render() {
     const {nmbs, rendering, fetching, visibleLines} = this.state;
-    const {provinces} = this.props;
+    const {provinces, calculating} = this.props;
     return (
       <div>
         <Grid divided columns='equal'>
           <Grid.Column width={3}>
             <Grid.Row>
               <ProvinceCheckbox
-                provinces={provinces} nmbs={nmbs} loading={fetching} func={(e) => this.update(e.target.name)}
+                provinces={provinces} nmbs={nmbs} loading={fetching || calculating} func={(e) => this.update(e.target.name)}
               />
             </Grid.Row>
             <Grid.Row hidden={!visibleLines} align='center'>

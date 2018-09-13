@@ -61,8 +61,9 @@ class TravelHandler extends Component {
     this.setData = this.setData.bind(this);
     this.second = this.second.bind(this);
     this.resetTimer = this.resetTimer.bind(this);
-
     TravelHandler.finishCalculating = TravelHandler.finishCalculating.bind(this);
+
+    window.addEventListener("cancel", () => this.setState({calculating: false}));
   }
 
   componentDidMount() {
@@ -183,11 +184,12 @@ class TravelHandler extends Component {
     let lastConnection = parsedResult[0];
     lastConnection.name = lastConnection[signUrl].replace(/"/g, "");
 
-    for (const connection of result.slice(0, -1)) {
+    for (const connection of result.slice(1, result.length)) {
       connection.name = connection[signUrl].replace(/"/g, "");
       if (connection[routeUrl] === lastConnection[routeUrl] && connection.name === lastConnection.name) {
         lastConnection.arrivalStop = connection.arrivalStop;
         lastConnection.arrivalTime = connection.arrivalTime;
+        lastConnection.arrivalStopName = connection.arrivalStopName;
       } else {
         lastConnection = TravelHandler.cloneConnection(connection);
         parsedResult.push(lastConnection);
@@ -229,10 +231,7 @@ class TravelHandler extends Component {
         <Segment>
           <Grid className="middle aligned">
             <Grid.Column width={1}>
-              <Button className='icon red' onClick={() => {
-                window.dispatchEvent(new CustomEvent("cancel"));
-                this.setState({calculating: false});
-              }}>
+              <Button className='icon red' onClick={() => window.dispatchEvent(new CustomEvent("cancel"))}>
                 <Icon name='times'/>
               </Button>
             </Grid.Column>
@@ -253,6 +252,7 @@ class TravelHandler extends Component {
                           departureStop={departureStop}
                           arrivalStop={arrivalStop}
                           stations={stations}
+                          calculating={calculating}
                           setStopCallback={this.setStop}
           />
         </Segment>
