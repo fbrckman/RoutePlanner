@@ -41,7 +41,6 @@ class InteractiveMap extends Component {
     this.state = {
       fetching: true,
       rendering: false,
-      stations: {},
       markers: {},
       markerLayer: L.markerClusterGroup(),
       selectedStops: L.featureGroup(),
@@ -75,8 +74,8 @@ class InteractiveMap extends Component {
 
   componentDidMount() {
     const self = this;
-    const {markerLayer, nmbs, stations, selectedStops} = this.state;
-    const {provinces} = this.props;
+    const {markerLayer, nmbs, selectedStops} = this.state;
+    const {provinces, stations} = this.props;
 
     // Setup the map
     const map = L.map('mapid').setView([50.85, 4.35, 5.2], 8);
@@ -169,7 +168,8 @@ class InteractiveMap extends Component {
    * @param province
    */
   renderMarkers(province) {
-    const {markers, stations, nmbs} = this.state;
+    const {markers, nmbs} = this.state;
+    const {stations} = this.props;
     const p = province !== undefined;
     const group = L.layerGroup();
 
@@ -235,7 +235,7 @@ class InteractiveMap extends Component {
    */
   drawPolyline(connection, color, weight) {
     let polyline = undefined;
-    const {stations} = this.state;
+    const {stations} = this.props;
     const start = stations[connection.departureStop], end = stations[connection.arrivalStop];
     if (start === undefined) {
       console.error("Station (departure) is undefined:", connection.departureStop);
@@ -319,8 +319,8 @@ class InteractiveMap extends Component {
    */
   selectStop(key, departure, customLocation = false, lat = 0, lng = 0) {
     // const self = this;
-    const {map, stations, markers, markerLayer, selectedStops} = this.state;
-    const {arrivalStop} = this.props;
+    const {map, markers, markerLayer, selectedStops} = this.state;
+    const {arrivalStop, stations} = this.props;
     const station = stations[key], original = markers[key];
     const icon = departure ? this.greenIcon : this.redIcon;
 
