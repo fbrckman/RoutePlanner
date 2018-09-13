@@ -3,7 +3,7 @@ import 'whatwg-fetch';
 import L from 'leaflet';
 import 'leaflet.markercluster';
 import './InteractiveMap.css';
-import {Dimmer, Loader, Grid, Icon} from 'semantic-ui-react';
+import {Dimmer, Loader, Grid, Button} from 'semantic-ui-react';
 import ProvinceCheckbox from './ProvinceCheckbox/ProvinceCheckbox';
 
 class InteractiveMap extends Component {
@@ -284,6 +284,7 @@ class InteractiveMap extends Component {
       }
     }
     map.fitBounds(route.getBounds());
+    console.log(Object.keys(route["_layers"]).length);
   }
 
   /* (De)Selecting -------------------------------------------------------------------------------------------------- */
@@ -488,7 +489,7 @@ class InteractiveMap extends Component {
   /* Render --------------------------------------------------------------------------------------------------------- */
 
   render() {
-    const {nmbs, rendering, fetching} = this.state;
+    const {nmbs, rendering, fetching, route} = this.state;
     const {provinces} = this.props;
     return (
       <div>
@@ -499,11 +500,16 @@ class InteractiveMap extends Component {
             />
           </Grid.Column>
           <Grid.Column>
-            <div id="mapid">
-              <Dimmer active={rendering}>
-                <Loader/>
-              </Dimmer>
-            </div>
+            <Grid.Row>
+              <div id="mapid">
+                <Dimmer active={rendering}>
+                  <Loader/>
+                </Dimmer>
+              </div>
+            </Grid.Row>
+            <Grid.Row hidden={Object.keys(route["_layers"]).length === 0}>
+              <Button onClick={this.clearAllLines} content="Clear lines"/>
+            </Grid.Row>
           </Grid.Column>
         </Grid>
       </div>

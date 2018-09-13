@@ -163,14 +163,14 @@ class TravelForm extends Component {
   render() {
     const self = this;
     const {departure, datetime, latest, customLatest, error} = this.state;
-    const {departureStop, arrivalStop} = this.props;
+    const {departureStop, arrivalStop, calculating} = this.props;
     const valid = departureStop.id !== "" && arrivalStop.id !== "";
     const message = 'Please make sure that the latest moment of departure is ';
 
     // TODO internationalization
     return (
       <div>
-        <Form>
+        <Form loading={calculating}>
           <Form.Group className="inline" widths="equal">
             <Form.Field control={Select} options={Object.values(options)} placeholder='Choose an option...'
                         name='departure' value={departure} onChange={this.handleChange} disabled={true}/>

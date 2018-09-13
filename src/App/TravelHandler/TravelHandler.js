@@ -175,6 +175,7 @@ class TravelHandler extends Component {
         <Segment>
           <TravelForm departureStop={departureStop}
                       arrivalStop={arrivalStop}
+                      calculating={calculating}
                       setDataCallback={this.setData}
           />
         </Segment>
