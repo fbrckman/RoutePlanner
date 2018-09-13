@@ -162,7 +162,7 @@ class TravelForm extends Component {
 
   render() {
     const self = this;
-    const {departure, submit, datetime, latest, customLatest, error} = this.state;
+    const {departure, datetime, latest, customLatest, error} = this.state;
     const {departureStop, arrivalStop} = this.props;
     const valid = departureStop.id !== "" && arrivalStop.id !== "";
     const message = 'Please make sure that the latest moment of departure is ';

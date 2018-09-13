@@ -34,7 +34,7 @@ class TravelHandler extends Component {
       markers: undefined, stops: new Set(), shown: false
     },
   };
-  colors = ['red', 'teal', 'yellow', 'pink', 'green', 'purple', 'orange', 'blue'];
+  colors = ['red', 'cyan', 'yellow', 'pink', 'green', 'purple', 'orange', 'blue'];
 
   constructor() {
     super();
@@ -46,6 +46,8 @@ class TravelHandler extends Component {
       departure: false,
       calculating: false,
       route: undefined,
+      minutes: 0,
+      seconds: 0,
       calculator: new Calculator(
         this,
         this.provinces,
@@ -56,11 +58,21 @@ class TravelHandler extends Component {
 
     this.setStop = this.setStop.bind(this);
     this.setData = this.setData.bind(this);
+    this.setTime = this.setTime.bind(this);
+    this.resetTimer = this.resetTimer.bind(this);
+
     TravelHandler.finishCalculating = TravelHandler.finishCalculating.bind(this);
   }
 
+  componentDidMount() {
+    window.setInterval(() => {
+      if (this.state.calculating) this.setTime();
+    }, 1000);
+  }
+
+  /* Events ----------------------------------------------------------------------------------------------------------*/
+
   static handleConnection(connection) {
-    console.log(connection);
     window.dispatchEvent(new CustomEvent("connection", {
       detail: {connection: connection}
     }));
@@ -71,6 +83,43 @@ class TravelHandler extends Component {
       detail: {result: result}
     }));
   }
+
+  /* Update state ----------------------------------------------------------------------------------------------------*/
+
+  setStop(newStop, departure) {
+    this.setState(departure ? {departureStop: newStop} : {arrivalStop: newStop});
+  }
+
+  setData(datetime, latest, departure) {
+    const {arrivalStop, departureStop, calculator} = this.state;
+    const province = departureStop.province;
+    if (province === arrivalStop.province) {
+      this.resetTimer();
+      this.setState({
+        datetime: datetime, latest: latest, departure: departure, calculating: true,
+      }, () => {
+        calculator.query(province, arrivalStop.id, departureStop.id, datetime, latest);
+      })
+    } else {
+      console.error("These stops are from different provinces.");
+    }
+  }
+
+  setTime() {
+    const {minutes, seconds} = this.state;
+    let newM = minutes, newS = seconds + 1;
+    if (newS === 60) {
+      newM += 1;
+      newS = 0;
+    }
+    this.setState({minutes: newM, seconds: newS});
+  }
+
+  resetTimer() {
+    this.setState({minutes: 0, seconds: 0});
+  }
+
+  /* Misc. -----------------------------------------------------------------------------------------------------------*/
 
   static finishCalculating(self, result) {
     console.log("Finish calculating...");
@@ -113,26 +162,10 @@ class TravelHandler extends Component {
     return output;
   }
 
-  setStop(newStop, departure) {
-    this.setState(departure ? {departureStop: newStop} : {arrivalStop: newStop});
-  }
-
-  setData(datetime, latest, departure) {
-    const {arrivalStop, departureStop, calculator} = this.state;
-    const province = departureStop.province;
-    if (province === arrivalStop.province) {
-      this.setState({
-        datetime: datetime, latest: latest, departure: departure, calculating: true,
-      }, () => {
-        calculator.query(province, arrivalStop.id, departureStop.id, datetime, latest);
-      })
-    } else {
-      console.error("These stops are from different provinces.");
-    }
-  }
+  /* Render ----------------------------------------------------------------------------------------------------------*/
 
   render() {
-    const {departureStop, arrivalStop, calculating, route} = this.state;
+    const {departureStop, arrivalStop, calculating, route, minutes, seconds} = this.state;
     return (
       <div>
         <Segment>
@@ -155,7 +188,13 @@ class TravelHandler extends Component {
             <Grid.Column width={1}>
               <Loader active inline/>
             </Grid.Column>
-            <Grid.Column>Calculating...</Grid.Column>
+            <Grid.Column width={8}>
+              <span>Calculating...</span>
+              <span style={{color: 'grey'}}>
+                {minutes > 0 ? minutes === 1 ? '1 minute, ' : minutes + 'minutes, ' : ''}
+                {seconds} seconds
+              </span>
+            </Grid.Column>
           </Grid>
         </Segment>}
         <Segment>

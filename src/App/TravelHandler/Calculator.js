@@ -17,11 +17,9 @@ class Calculator {
 
     this.handler = handler;
     this.planners = {};
-    console.log("creating planners");
     for (const province of Object.keys(entrypoints)) {
       this.planners[province] = new Client({"entrypoints": [entrypoints[province].connectionsUrl]});
     }
-    console.log("planners created");
     this.connectionCallback = connectionCallback;
     this.resultCallback = resultCallback;
     this.finishCalculatingCallback = finishCalculatingCallback;
@@ -37,6 +35,9 @@ class Calculator {
     const planner = this.planners[province];
     this.calculationCancelled = false;
 
+    const start = new Date();
+    let end, diff;
+
     planner.query({
       "arrivalStop": arrivalStop,
       "departureStop": departureStop,
@@ -48,11 +49,16 @@ class Calculator {
       resultStream.on('result', function (path) {
         // console.log("Result:", path);
         self.finishCalculatingCallback(self.handler, path);
+
+        end = new Date();
+        diff = (end - start) / 1000;
+        console.log("Elapsed time: ", diff);
+
         source.close();
       });
 
       resultStream.on('data', function (connection) {
-        console.log(connection);
+        // console.log(connection);
         self.connectionCallback(connection);
       });
 
@@ -63,7 +69,7 @@ class Calculator {
 
       // You can also catch when a response is generated HTTP requests done by the interface as follows
       source.on('response', function (url) {
-        console.log('Response received for', url);
+        // console.log('Response received for', url);
         if (self.calculationCancelled) {
           console.log("--- Cancelled ---");
           this.close();

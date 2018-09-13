@@ -3,14 +3,14 @@ import 'whatwg-fetch';
 import L from 'leaflet';
 import 'leaflet.markercluster';
 import './InteractiveMap.css';
-import {Dimmer, Loader, Grid} from 'semantic-ui-react';
+import {Dimmer, Loader, Grid, Icon} from 'semantic-ui-react';
 import ProvinceCheckbox from './ProvinceCheckbox/ProvinceCheckbox';
 
 class InteractiveMap extends Component {
 
   DEFAULT_ID = "";
   CUSTOM_ID = "CUSTOM";
-  CONNECTION_COLOR = "rgba(3, 112, 170, 0.5)";
+  CONNECTION_COLOR = "rgba(3, 112, 170, 0.6)";
   popup;
 
   /* Icons & icon constants */
@@ -63,7 +63,8 @@ class InteractiveMap extends Component {
 
     this.drawConnection = this.drawConnection.bind(this);
     this.drawResult = this.drawResult.bind(this);
-    this.clearLines = this.clearLines.bind(this);
+    this.clearCalculationLines = this.clearCalculationLines.bind(this);
+    this.clearAllLines = this.clearAllLines.bind(this);
 
     this.update = this.update.bind(this);
     this.onMapClick = this.onMapClick.bind(this);
@@ -129,7 +130,6 @@ class InteractiveMap extends Component {
     map.addLayer(markerLayer);
 
     window.addEventListener("connection", (event) => {
-      console.log("heard");
       this.drawConnection(event.detail.connection);
     });
     window.addEventListener("result", (event) => {
@@ -137,10 +137,10 @@ class InteractiveMap extends Component {
     });
     window.addEventListener("submit", () => {
       console.log("submit");
-      this.clearLines();
+      this.clearCalculationLines();
       map.fitBounds(selectedStops.getBounds());
     });
-    window.addEventListener("cancel", this.clearLines);
+    window.addEventListener("cancel", this.clearCalculationLines);
   }
 
   /* Markers & Rendering -------------------------------------------------------------------------------------------- */
@@ -348,7 +348,7 @@ class InteractiveMap extends Component {
 
   /* Polylines  ----------------------------------------------------------------------------------------------------- */
 
-  drawPolyline(connection, color) {
+  drawPolyline(connection, color, weight) {
     let polyline = undefined;
     const {stations} = this.state;
     const start = stations[connection.departureStop], end = stations[connection.arrivalStop];
@@ -358,13 +358,13 @@ class InteractiveMap extends Component {
       console.error("Station (arrival) is undefined:", connection.arrivalStop);
     } else {
       const startPosition = start.point, endPosition = end.point;
-      polyline = L.polyline([startPosition, endPosition], {color: color});
+      polyline = L.polyline([startPosition, endPosition], {color: color, weight: weight});
     }
     return polyline
   }
 
   drawConnection(connection) {
-    const polyline = this.drawPolyline(connection, this.CONNECTION_COLOR);
+    const polyline = this.drawPolyline(connection, this.CONNECTION_COLOR, 2);
     if (polyline) {
       const {lines, map} = this.state;
       lines.addLayer(polyline);
@@ -374,9 +374,13 @@ class InteractiveMap extends Component {
 
   drawResult(connections) {
     const {route, map} = this.state;
+    this.clearCalculationLines();
     for (const c of connections) {
-      const polyline = this.drawPolyline(c, c.color);
+      const polyline = this.drawPolyline(c, c.color, 4);
       if (polyline) {
+        const name = c["http://vocab.gtfs.org/terms#headsign"].replace(/"/g, "");
+        polyline.bindPopup(name);
+        polyline.on("mouseover", () => polyline.openPopup());
         route.addLayer(polyline);
         map.addLayer(polyline);
       }
@@ -384,12 +388,19 @@ class InteractiveMap extends Component {
   }
 
   // TODO fixme
-  clearLines() {
-    console.log("clearLines");
+  clearCalculationLines() {
     const {map, lines} = this.state;
-    console.log(this.state);
+    console.log("Removing lines...", lines);
     map.removeLayer(lines);
     this.setState({lines: L.layerGroup()});
+  }
+
+  clearAllLines() {
+    const {map, route} = this.state;
+    this.clearCalculationLines();
+    console.log("Removing route...", route);
+    map.removeLayer(route);
+    this.setState({route: L.layerGroup()});
   }
 
   /* Misc. ---------------------------------------------------------------------------------------------------------- */
