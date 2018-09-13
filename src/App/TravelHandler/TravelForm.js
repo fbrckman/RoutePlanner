@@ -204,33 +204,31 @@ class TravelForm extends Component {
                    (departure ? 'later than the moment of departure.' : 'earlier than the moment of arrival.')}
           />
 
-          <Form.Group className="inline" widths="equal">
-            <Form.Field className="inline">
+          <Form.Group className="inline">
+            <Form.Field className="inline" width={8}>
+              <label>From</label>
               <Input icon={<Icon name='map marker alternate' color='green'/>}
-                     label="Starting point" id="departure-field" name="departure-stop"
+                     id="departure-field" name="departure-stop"
                      placeholder="No station selected." type="text"/>
             </Form.Field>
-            <Form.Field className="inline">
-              <Input icon={<Icon name='map marker alternate' color='red'/>} label="Destination"
+            <Form.Field className="inline" width={8}>
+              <label>to</label>
+              <Input icon={<Icon name='map marker alternate' color='red'/>}
                      id="arrival-field" name="arrival-stop" placeholder="No station selected" type="text"/>
             </Form.Field>
-            <Form.Field>
+          </Form.Group>
+          <Form.Group>
+            <Form.Field width={13}/>
+            <Form.Field width={3}>
               <Button.Group>
                 <Button className="icon" onClick={this.clear} disabled={true}>
                   <Icon name="undo alternate"/>
                 </Button>
-                <Button content="Submit" onClick={this.handleSubmit} disabled={!valid}/>
+                <Button content="Submit" className="green" onClick={this.handleSubmit} disabled={!valid}/>
               </Button.Group>
             </Form.Field>
           </Form.Group>
         </Form>
-
-        {/* TODO Temp; remove this */}
-        <p hidden={!submit}>
-          You chose {options[this.state.departure].text.toLowerCase()}
-          &nbsp;at {datetime.toDateString()} {this.state.datetime.getHours()}:
-          {datetime.getMinutes() < 10 ? '0' + datetime.getMinutes() : datetime.getMinutes()}
-        </p>
       </div>
     );
   }

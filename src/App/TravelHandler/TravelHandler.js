@@ -1,8 +1,9 @@
 import React, {Component} from 'react';
-import {Segment, Loader, Grid, Button} from 'semantic-ui-react';
+import {Segment, Loader, Grid, Button, Icon} from 'semantic-ui-react';
 import TravelForm from './TravelForm';
-import InteractiveMap from './InteractiveMap/InteractiveMap';
 import Calculator from './Calculator';
+import InteractiveMap from './InteractiveMap/InteractiveMap';
+import RouteView from './RouteView/RouteView';
 
 class TravelHandler extends Component {
 
@@ -33,6 +34,7 @@ class TravelHandler extends Component {
       markers: undefined, stops: new Set(), shown: false
     },
   };
+  colors = ['red', 'teal', 'yellow', 'pink', 'green', 'purple', 'orange', 'blue'];
 
   constructor() {
     super();
@@ -42,22 +44,23 @@ class TravelHandler extends Component {
       datetime: new Date(),
       latest: new Date(),
       departure: false,
+      calculating: false,
+      route: undefined,
       calculator: new Calculator(
         this,
         this.provinces,
         TravelHandler.handleConnection,
         TravelHandler.handleResult,
         TravelHandler.finishCalculating),
-      calculating: false,
     };
 
-    this.getConnectionsUrls = this.getConnectionsUrls.bind(this);
     this.setStop = this.setStop.bind(this);
     this.setData = this.setData.bind(this);
     TravelHandler.finishCalculating = TravelHandler.finishCalculating.bind(this);
   }
 
   static handleConnection(connection) {
+    console.log(connection);
     window.dispatchEvent(new CustomEvent("connection", {
       detail: {connection: connection}
     }));
@@ -70,14 +73,42 @@ class TravelHandler extends Component {
   }
 
   static finishCalculating(self, result) {
-    console.log("Finishing calculation...");
+    console.log("Finish calculating...");
     self.setState({calculating: false});
+    const colorSet = {};
+    let c = 0;
+
+    for (const connection of result) {
+      const route = connection["http://vocab.gtfs.org/terms#route"];
+      if (colorSet[route] === undefined) {
+        colorSet[route] = self.colors[c];
+        c = (c + 1) % self.colors.length;
+      }
+      connection.color = colorSet[route];
+    }
+
+    const parsedResult = [TravelHandler.cloneConnection(result[0])];
+    let lastConnection = parsedResult[0];
+
+    for (const connection of result.slice(0, -1)) {
+      if (connection["http://vocab.gtfs.org/terms#route"] === lastConnection["http://vocab.gtfs.org/terms#route"]) {
+        lastConnection.arrivalStop = connection.arrivalStop;
+        lastConnection.arrivalTime = connection.arrivalTime;
+      } else {
+        lastConnection = TravelHandler.cloneConnection(connection);
+        parsedResult.push(lastConnection);
+      }
+    }
+
+    self.setState({route: parsedResult});
+
+    TravelHandler.handleResult(result);
   }
 
-  getConnectionsUrls() {
-    const output = [];
-    for (const p of Object.values(this.provinces)) {
-      output.push(p.connectionsUrl);
+  static cloneConnection(connection) {
+    const output = {};
+    for (const key of Object.keys(connection)) {
+      output[key] = connection[key];
     }
     return output;
   }
@@ -90,21 +121,10 @@ class TravelHandler extends Component {
     const {arrivalStop, departureStop, calculator} = this.state;
     const province = departureStop.province;
     if (province === arrivalStop.province) {
-      console.log("Setting data...");
-      console.log("Datetime:", datetime);
       this.setState({
-        datetime: datetime,
-        latest: latest,
-        departure: departure,
-        calculating: true,
+        datetime: datetime, latest: latest, departure: departure, calculating: true,
       }, () => {
-        calculator.query(
-          province,
-          arrivalStop.id,
-          departureStop.id,
-          datetime,
-          latest
-        );
+        calculator.query(province, arrivalStop.id, departureStop.id, datetime, latest);
       })
     } else {
       console.error("These stops are from different provinces.");
@@ -112,7 +132,7 @@ class TravelHandler extends Component {
   }
 
   render() {
-    const {departureStop, arrivalStop, calculating} = this.state;
+    const {departureStop, arrivalStop, calculating, route} = this.state;
     return (
       <div>
         <Segment>
@@ -121,26 +141,32 @@ class TravelHandler extends Component {
                       setDataCallback={this.setData}
           />
         </Segment>
-        <Segment hidden={!calculating}>
+        {calculating &&
+        <Segment>
           <Grid className="middle aligned">
-            <Grid.Column>
+            <Grid.Column width={1}>
+              <Button className='icon red' onClick={() => {
+                window.dispatchEvent(new CustomEvent("cancel"));
+                this.setState({calculating: false});
+              }}>
+                <Icon name='times'/>
+              </Button>
+            </Grid.Column>
+            <Grid.Column width={1}>
               <Loader active inline/>
             </Grid.Column>
             <Grid.Column>Calculating...</Grid.Column>
-            <Grid.Column floated='right'>
-              <Button onClick={() => {
-                window.dispatchEvent(new CustomEvent("cancel"));
-                this.setState({calculating: false});
-              }}>Cancel</Button>
-            </Grid.Column>
           </Grid>
-        </Segment>
+        </Segment>}
         <Segment>
           <InteractiveMap provinces={this.provinces}
                           departureStop={departureStop}
                           arrivalStop={arrivalStop}
                           setStopCallback={this.setStop}
           />
+        </Segment>
+        <Segment hidden={route === undefined}>
+          <RouteView route={route}/>
         </Segment>
       </div>
     );

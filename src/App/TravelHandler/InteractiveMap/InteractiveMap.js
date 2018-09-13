@@ -10,8 +10,7 @@ class InteractiveMap extends Component {
 
   DEFAULT_ID = "";
   CUSTOM_ID = "CUSTOM";
-  CONNECTION_COLOR = "rgba(1, 1, 160, 0.75)";
-  RESULT_COLOR = "rgb(183, 0, 33)";
+  CONNECTION_COLOR = "rgba(3, 112, 170, 0.5)";
   popup;
 
   /* Icons & icon constants */
@@ -105,7 +104,7 @@ class InteractiveMap extends Component {
         window.fetch(provinces[province].stopsUrl).then(function (response) {
           return response.json();
         }).then(function (stopsDeLijn) {
-          console.log(province, "fetched");
+          // console.log(province, "fetched");
           stopsDeLijn["@graph"].forEach(function (stop) {
             const key = stop["@id"];
             provinces[province].stops.add(key);
@@ -130,11 +129,10 @@ class InteractiveMap extends Component {
     map.addLayer(markerLayer);
 
     window.addEventListener("connection", (event) => {
-      console.log("connection");
+      console.log("heard");
       this.drawConnection(event.detail.connection);
     });
     window.addEventListener("result", (event) => {
-      console.log("result");
       this.drawResult(event.detail.result);
     });
     window.addEventListener("submit", () => {
@@ -350,28 +348,42 @@ class InteractiveMap extends Component {
 
   /* Polylines  ----------------------------------------------------------------------------------------------------- */
 
-  drawConnection(connection) {
-    const {stations, lines, map} = this.state;
+  drawPolyline(connection, color) {
+    let polyline = undefined;
+    const {stations} = this.state;
     const start = stations[connection.departureStop], end = stations[connection.arrivalStop];
     if (start === undefined) {
       console.error("Station (departure) is undefined:", connection.departureStop);
     } else if (end === undefined) {
       console.error("Station (arrival) is undefined:", connection.arrivalStop);
     } else {
-      const startPosition = start.point,
-        endPosition = end.point;
-      const polyline = L.polyline([startPosition, endPosition], {color: this.CONNECTION_COLOR});
+      const startPosition = start.point, endPosition = end.point;
+      polyline = L.polyline([startPosition, endPosition], {color: color});
+    }
+    return polyline
+  }
+
+  drawConnection(connection) {
+    const polyline = this.drawPolyline(connection, this.CONNECTION_COLOR);
+    if (polyline) {
+      const {lines, map} = this.state;
       lines.addLayer(polyline);
       map.addLayer(polyline);
     }
   }
 
   drawResult(connections) {
+    const {route, map} = this.state;
     for (const c of connections) {
-      console.log(c);
+      const polyline = this.drawPolyline(c, c.color);
+      if (polyline) {
+        route.addLayer(polyline);
+        map.addLayer(polyline);
+      }
     }
   }
 
+  // TODO fixme
   clearLines() {
     console.log("clearLines");
     const {map, lines} = this.state;
