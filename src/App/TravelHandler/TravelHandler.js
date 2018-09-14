@@ -1,5 +1,5 @@
 import React, {Component} from 'react';
-import {Segment, Loader, Grid, Button, Icon} from 'semantic-ui-react';
+import {Segment, Loader, Grid, Button, Icon, Modal, Header} from 'semantic-ui-react';
 import TravelForm from './TravelForm';
 import Calculator from './Calculator';
 import InteractiveMap from './InteractiveMap/InteractiveMap';
@@ -45,6 +45,7 @@ class TravelHandler extends Component {
       latest: new Date(),
       departure: false,
       calculating: false,
+      timeoutModal: false,
       routes: [],
       minutes: 0,
       seconds: 0,
@@ -54,6 +55,7 @@ class TravelHandler extends Component {
         this.provinces,
         TravelHandler.handleConnection,
         TravelHandler.handleResult,
+        TravelHandler.timeout,
         TravelHandler.finishCalculating),
     };
 
@@ -61,6 +63,7 @@ class TravelHandler extends Component {
     this.setData = this.setData.bind(this);
     this.second = this.second.bind(this);
     this.resetTimer = this.resetTimer.bind(this);
+    TravelHandler.timeout = TravelHandler.timeout.bind(this);
     TravelHandler.finishCalculating = TravelHandler.finishCalculating.bind(this);
 
     window.addEventListener("cancel", () => this.setState({calculating: false}));
@@ -87,6 +90,7 @@ class TravelHandler extends Component {
   /**
    * Dispatch an event with the given result
    * @param result:array of connections
+   * @param keepCalculating:boolean, true if the calculator should continue after the first result
    */
   static handleResult(result, keepCalculating) {
     window.dispatchEvent(new CustomEvent("result", {
@@ -162,6 +166,11 @@ class TravelHandler extends Component {
 
   /* Misc. -----------------------------------------------------------------------------------------------------------*/
 
+  static timeout(self) {
+    self.setState({timeoutModal: true});
+    window.dispatchEvent(new CustomEvent("cancel"));
+  }
+
   /**
    * Callback funtion.
    * Assign a color to every routeLines in the result. Assign a name to every stop.
@@ -230,9 +239,15 @@ class TravelHandler extends Component {
   /* Render ----------------------------------------------------------------------------------------------------------*/
 
   render() {
-    const {departureStop, arrivalStop, calculating, routes, minutes, seconds, stations} = this.state;
+    const {departureStop, arrivalStop, calculating, routes, minutes, seconds, stations, timeoutModal} = this.state;
     return (
       <div>
+        <Modal basic size="small" open={timeoutModal} onClose={() => this.setState({timeoutModal: false})}>
+          <Header content="Timeout"/>
+          <Modal.Content>
+            <p>The route calculation has reached a timeout. Please try again.</p>
+          </Modal.Content>
+        </Modal>
         <Segment>
           <TravelForm departureStop={departureStop}
                       arrivalStop={arrivalStop}

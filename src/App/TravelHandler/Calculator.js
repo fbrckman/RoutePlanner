@@ -10,9 +10,10 @@ class Calculator {
 
   connectionCallback;
   resultCallback;
+  timeoutCallback;
   finishCalculatingCallback;
 
-  constructor(handler, entrypoints, connectionCallback, resultCallback, finishCalculatingCallback) {
+  constructor(handler, entrypoints, connectionCallback, resultCallback, timeoutCallback, finishCalculatingCallback) {
     this.calculationCancelled = false;
 
     this.handler = handler;
@@ -22,6 +23,7 @@ class Calculator {
     }
     this.connectionCallback = connectionCallback;
     this.resultCallback = resultCallback;
+    this.timeoutCallback = timeoutCallback;
     this.finishCalculatingCallback = finishCalculatingCallback;
     this.queryPlanner = this.queryPlanner.bind(this);
 
@@ -30,13 +32,12 @@ class Calculator {
     })
   }
 
-  queryPlanner(province, arrivalStop, departureStop, departureTime, latestDepartureTime, keepCalculating=false, searchTimeOut=9000) {
+  queryPlanner(province, arrivalStop, departureStop, departureTime, latestDepartureTime, keepCalculating=true, searchTimeOut=600000) {
     const self = this;
     const planner = this.planners[province];
     this.calculationCancelled = false;
 
     let start = new Date(), end, diff;
-
     planner.timespanQuery({
       "arrivalStop": arrivalStop,
       "departureStop": departureStop,
@@ -44,6 +45,11 @@ class Calculator {
       "latestDepartTime": latestDepartureTime,
       "searchTimeOut": searchTimeOut,
     }, function (resultStream, source) {
+
+      setTimeout(() => {
+        self.timeoutCallback(self.handler);
+        self.calculationCancelled = true;
+      }, searchTimeOut);
 
       resultStream.on('result', function (path) {
         self.finishCalculatingCallback(self.handler, path, keepCalculating);
