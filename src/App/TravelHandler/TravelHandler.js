@@ -45,7 +45,7 @@ class TravelHandler extends Component {
       latest: new Date(),
       departure: false,
       calculating: false,
-      route: undefined,
+      routes: [],
       minutes: 0,
       seconds: 0,
       stations: {},
@@ -88,9 +88,12 @@ class TravelHandler extends Component {
    * Dispatch an event with the given result
    * @param result:array of connections
    */
-  static handleResult(result) {
+  static handleResult(result, keepCalculating) {
     window.dispatchEvent(new CustomEvent("result", {
-      detail: {result: result}
+      detail: {
+        result: result,
+        keepCalculating: keepCalculating
+      }
     }));
   }
 
@@ -109,20 +112,28 @@ class TravelHandler extends Component {
    * Check if the departure and arrival province are the same. // TODO remove this
    * Reset the timer. Set the current state with the given arguments.
    * Query the calculator with the current state.
+   * // TODO keepCalculatins is false, since the used library stops calculating after the first result anyway
    *
    * @param datetime:Date
    * @param latest:Date
    * @param departure:boolean
+   * @param keepCalculating:boolean, true if the calculator should keep calculating after the first result
    */
-  setData(datetime, latest, departure) {
+  setData(datetime, latest, departure, keepCalculating=false) {
     const {arrivalStop, departureStop, calculator} = this.state;
     const province = departureStop.province;
     if (province === arrivalStop.province) { // TODO remove this if the calculator can handle cross-province-requests
       this.resetTimer();
       this.setState({
-        datetime: datetime, latest: latest, departure: departure, calculating: true, route: undefined,
+        datetime: datetime,
+        latest: latest,
+        departure: departure,
+        calculating: true,
+        routes: [],
+        selectedRoute: undefined
       }, () => {
-        calculator.query(province, arrivalStop.id, departureStop.id, datetime, latest);
+        console.log("State:", this.state);
+        calculator.queryPlanner(province, arrivalStop.id, departureStop.id, datetime, latest, keepCalculating);
       })
     } else {
       console.error("These stops are from different provinces.");
@@ -153,15 +164,18 @@ class TravelHandler extends Component {
 
   /**
    * Callback funtion.
-   * Assign a color to every route in the result. Assign a name to every stop.
-   * Parse the result to contain the start and end of every trip of the route.
+   * Assign a color to every routeLines in the result. Assign a name to every stop.
+   * Parse the result to contain the start and end of every trip of the routeLines.
    *    -> Used to fill in the RouteView and make it more readable.
    * @param self
-   * @param result:array of connection objects, one connection object for each trip of the route
+   * @param result:array of connection objects, one connection object for each trip of the routeLines
+   * @param keepCalculating:boolean, true if the Calculator will keep calculating routes
    */
-  static finishCalculating(self, result) {
-    console.log("Finish calculating...");
-    self.setState({calculating: false});
+  static finishCalculating(self, result, keepCalculating) {
+    if (!keepCalculating) {
+      console.log("Finish calculating...");
+      self.setState({calculating: false});
+    }
     const {stations} = self.state;
     const colorSet = {};
     let c = 0;
@@ -178,8 +192,7 @@ class TravelHandler extends Component {
       connection.departureStopName = stations[connection.departureStop].name;
     }
 
-    const routeUrl = "http://vocab.gtfs.org/terms#route", signUrl = "http://vocab.gtfs.org/terms#headsign";
-
+    const routeUrl = "http://vocab.gtfs.org/terms#routeLines", signUrl = "http://vocab.gtfs.org/terms#headsign";
     const parsedResult = [TravelHandler.cloneConnection(result[0])];
     let lastConnection = parsedResult[0];
     lastConnection.name = lastConnection[signUrl].replace(/"/g, "");
@@ -196,9 +209,9 @@ class TravelHandler extends Component {
       }
     }
 
-    self.setState({route: parsedResult});
-
-    TravelHandler.handleResult(result);
+    console.log("Parsed:", parsedResult);
+    self.setState({routes: [...self.state.routes, parsedResult]});
+    TravelHandler.handleResult(result, keepCalculating);
   }
 
   /**
@@ -217,7 +230,7 @@ class TravelHandler extends Component {
   /* Render ----------------------------------------------------------------------------------------------------------*/
 
   render() {
-    const {departureStop, arrivalStop, calculating, route, minutes, seconds, stations} = this.state;
+    const {departureStop, arrivalStop, calculating, routes, minutes, seconds, stations} = this.state;
     return (
       <div>
         <Segment>
@@ -241,8 +254,8 @@ class TravelHandler extends Component {
             <Grid.Column width={8}>
               <span>Calculating... </span>
               <span style={{color: 'lightgrey'}}>
-                {minutes > 0 ? minutes === 1 ? '1 minute, ' : minutes + 'minutes, ' : ''}
-                {seconds} seconds
+                {minutes > 0 ? minutes === 1 ? '1 minute, ' : minutes + ' minutes, ' : ''}
+                {seconds === 1 ? '1 second' : seconds + ' seconds'}
               </span>
             </Grid.Column>
           </Grid>
@@ -256,9 +269,11 @@ class TravelHandler extends Component {
                           setStopCallback={this.setStop}
           />
         </Segment>
-        <Segment hidden={route === undefined}>
-          <RouteView route={route}/>
-        </Segment>
+        {routes.length > 0 ?
+          <Segment>
+            <RouteView routes={routes}/>
+          </Segment>
+          : <div/>}
       </div>
     );
   }

@@ -170,7 +170,7 @@ class TravelForm extends Component {
     // TODO internationalization
     return (
       <div>
-        <Form loading={calculating}>
+        <Form>
           <Form.Group className="inline" widths="equal">
             <Form.Field control={Select} options={Object.values(options)} placeholder='Choose an option...'
                         name='departure' value={departure} onChange={this.handleChange} disabled={true}/>
@@ -221,10 +221,10 @@ class TravelForm extends Component {
             <Form.Field width={13}/>
             <Form.Field width={3}>
               <Button.Group>
-                <Button className="icon" onClick={this.clear} disabled={true}>
+                <Button className="icon" onClick={this.clear} disabled={true || calculating}>
                   <Icon name="undo alternate"/>
                 </Button>
-                <Button content="Submit" className="green" onClick={this.handleSubmit} disabled={!valid}/>
+                <Button content="Submit" className="green" onClick={this.handleSubmit} disabled={!valid || calculating}/>
               </Button.Group>
             </Form.Field>
           </Form.Group>

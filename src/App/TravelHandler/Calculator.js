@@ -23,22 +23,21 @@ class Calculator {
     this.connectionCallback = connectionCallback;
     this.resultCallback = resultCallback;
     this.finishCalculatingCallback = finishCalculatingCallback;
-    this.query = this.query.bind(this);
+    this.queryPlanner = this.queryPlanner.bind(this);
 
     window.addEventListener("cancel", () => {
       this.calculationCancelled = true;
     })
   }
 
-  query(province, arrivalStop, departureStop, departureTime, latestDepartureTime, searchTimeOut = 10) {
+  queryPlanner(province, arrivalStop, departureStop, departureTime, latestDepartureTime, keepCalculating=false, searchTimeOut=9000) {
     const self = this;
     const planner = this.planners[province];
     this.calculationCancelled = false;
 
-    const start = new Date();
-    let end, diff;
+    let start = new Date(), end, diff;
 
-    planner.query({
+    planner.timespanQuery({
       "arrivalStop": arrivalStop,
       "departureStop": departureStop,
       "departureTime": departureTime,
@@ -47,18 +46,17 @@ class Calculator {
     }, function (resultStream, source) {
 
       resultStream.on('result', function (path) {
-        // console.log("Result:", path);
-        self.finishCalculatingCallback(self.handler, path);
+        self.finishCalculatingCallback(self.handler, path, keepCalculating);
 
         end = new Date();
         diff = (end - start) / 1000;
         console.log("Elapsed time: ", diff);
+        start = new Date();
 
-        source.close();
+        if (!keepCalculating) source.close();
       });
 
       resultStream.on('data', function (connection) {
-        // console.log(connection);
         self.connectionCallback(connection);
       });
 

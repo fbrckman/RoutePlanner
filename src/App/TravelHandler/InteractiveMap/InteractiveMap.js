@@ -45,7 +45,7 @@ class InteractiveMap extends Component {
       markerLayer: L.markerClusterGroup(),
       selectedStops: L.featureGroup(),
       lines: L.layerGroup(),
-      route: L.featureGroup(),
+      routeLines: [],
       visibleLines: false,
       map: undefined,
       nmbs: {
@@ -136,7 +136,7 @@ class InteractiveMap extends Component {
       this.drawConnection(event.detail.connection);
     });
     window.addEventListener("result", (event) => {
-      this.drawResult(event.detail.result);
+      this.drawResult(event.detail.result, !event.detail.keepCalculating);
     });
     window.addEventListener("submit", () => {
       this.clearAllLines();
@@ -265,26 +265,31 @@ class InteractiveMap extends Component {
 
   /**
    * Draw the result on the given connections.
-   * Used when drawing the resulting route.
+   * Used when drawing the resulting routeLines.
    * This line is thicker and more colorful than the "calculating"-connections.
-   * For each route, the line gets another color.
-   * A popup with the name of the route will open on mousover.
+   * For each routeLines, the line gets another color.
+   * A popup with the name of the routeLines will open on mousover.
+   *
    * @param connections: array with connection objects
+   * @param lastResult:boolean, true if this is the last calculated resulted
    */
-  drawResult(connections) {
-    const {route, map} = this.state;
-    this.clearCalculationLines();
+  drawResult(connections, lastResult) {
+    const {routeLines, map} = this.state;
+    if (lastResult) this.clearCalculationLines();
+    const group = L.featureGroup();
+
     for (const c of connections) {
       const polyline = this.drawPolyline(c, c.color, 4);
       if (polyline) {
         const name = c["http://vocab.gtfs.org/terms#headsign"].replace(/"/g, "");
         polyline.bindPopup(name);
         polyline.on("mouseover", () => polyline.openPopup());
-        route.addLayer(polyline);
+        group.addLayer(polyline);
         map.addLayer(polyline);
       }
     }
-    map.fitBounds(route.getBounds());
+    routeLines.push(group);
+    map.fitBounds(group.getBounds());
   }
 
   /* (De)Selecting -------------------------------------------------------------------------------------------------- */
@@ -446,12 +451,12 @@ class InteractiveMap extends Component {
   }
 
   /**
-   * Clear the calculation lines and the route from the map.
+   * Clear the calculation lines and the routeLines from the map.
    */
   clearAllLines() {
     this.clearCalculationLines();
-    this.clearLayers(this.state.route);
-    this.setState({route: L.featureGroup(), visibleLines: false});
+    for (const l of this.state.routeLines) this.clearLayers(l);
+    this.setState({routeLines: [], visibleLines: false});
   }
 
   /* Misc. ---------------------------------------------------------------------------------------------------------- */
@@ -498,11 +503,12 @@ class InteractiveMap extends Component {
           <Grid.Column width={3}>
             <Grid.Row>
               <ProvinceCheckbox
-                provinces={provinces} nmbs={nmbs} loading={fetching || calculating} func={(e) => this.update(e.target.name)}
+                provinces={provinces} nmbs={nmbs} loading={fetching} disabled={calculating}
+                func={(e) => this.update(e.target.name)}
               />
             </Grid.Row>
             <Grid.Row hidden={!visibleLines} align='center'>
-              <Button onClick={this.clearAllLines} content="Clear lines"/>
+              <Button onClick={this.clearCalculationLines} content="Clear lines"/>
             </Grid.Row>
           </Grid.Column>
           <Grid.Column>
