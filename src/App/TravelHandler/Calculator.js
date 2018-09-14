@@ -12,8 +12,9 @@ class Calculator {
   resultCallback;
   timeoutCallback;
   finishCalculatingCallback;
+  streamEndCallback;
 
-  constructor(handler, entrypoints, connectionCallback, resultCallback, timeoutCallback, finishCalculatingCallback) {
+  constructor(handler, entrypoints, connectionCallback, resultCallback, timeoutCallback, finishCalculatingCallback, streamEndCallback) {
     this.calculationCancelled = false;
 
     this.handler = handler;
@@ -25,6 +26,7 @@ class Calculator {
     this.resultCallback = resultCallback;
     this.timeoutCallback = timeoutCallback;
     this.finishCalculatingCallback = finishCalculatingCallback;
+    this.streamEndCallback = streamEndCallback;
     this.queryPlanner = this.queryPlanner.bind(this);
 
     window.addEventListener("cancel", () => {
@@ -64,6 +66,11 @@ class Calculator {
 
       resultStream.on('data', function (connection) {
         self.connectionCallback(connection);
+      });
+
+      resultStream.on('end', () => {
+        self.streamEndCallback(self.handler);
+        console.log("--- Stream ended ---");
       });
 
       // You can also count the number of HTTP requests done by the interface as follows

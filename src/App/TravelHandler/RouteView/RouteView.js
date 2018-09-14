@@ -1,5 +1,6 @@
 import React, {Component} from 'react';
 import {Segment, Icon, Header, Grid} from 'semantic-ui-react';
+import moment from 'moment';
 import './RouteView.css';
 
 class RouteView extends Component {
@@ -9,20 +10,20 @@ class RouteView extends Component {
     if (routes && routes.length > 0) {
       return routes.map(function (route) {
         const start = route[0], end = route[route.length - 1];
-        const diff = new Date(end.arrivalTime - start.departureTime);
+        const diff = moment.duration(moment(end).diff(moment(start)));
         return (
-          <div key={'route' + routes.indexOf(route)}>
+          <Segment key={'route' + routes.indexOf(route)}>
             <Header as='h3'>Route Found</Header>
             <Grid columns={3}>
               <Grid.Row>
                 <Grid.Column>
-                  <strong>Departure:</strong> {start.departureTime.toLocaleString()} <br/>at {start.departureStopName}
+                  <strong>Departure:</strong> {moment(start.departureTime).format('ddd MMM Do, HH:mm')} <br/>at {start.departureStopName}
                 </Grid.Column>
                 <Grid.Column>
-                  <strong>Arrival:</strong> {end.arrivalTime.toLocaleString()} <br/>at {end.arrivalStopName}
+                  <strong>Arrival:</strong> {moment(end.arrivalTime).format('ddd MMM Do, HH:mm')} <br/>at {end.arrivalStopName}
                 </Grid.Column>
                 <Grid.Column>
-                  <strong>Travel time:</strong> {diff.getHours()} hours, {diff.getMinutes()} minutes <br/>
+                  <strong>Travel time:</strong> {diff.humanize()} <br/>
                   {route.length - 1} switches
                 </Grid.Column>
               </Grid.Row>
@@ -39,18 +40,18 @@ class RouteView extends Component {
                       </Grid.Column>
                       <Grid.Column width={4}>
                         <Grid.Row><strong>From</strong> {section.departureStopName}</Grid.Row>
-                        <Grid.Row>{section.departureTime.toLocaleString()}</Grid.Row>
+                        <Grid.Row>{moment(section.departureTime).format('ddd MMM Do, HH:mm')}</Grid.Row>
                       </Grid.Column>
                       <Grid.Column width={4}>
                         <Grid.Row><strong>to</strong> {section.arrivalStopName}</Grid.Row>
-                        <Grid.Row>{section.arrivalTime.toLocaleString()}</Grid.Row>
+                        <Grid.Row>{moment(section.arrivalTime).format('ddd MMM Do, HH:mm')}</Grid.Row>
                       </Grid.Column>
                     </Grid.Row>
                   </Grid>
                 </Segment>
               )
             })}
-          </div>
+          </Segment>
         );
       });
     } else {

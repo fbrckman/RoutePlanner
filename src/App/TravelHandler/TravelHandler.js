@@ -47,6 +47,7 @@ class TravelHandler extends Component {
       calculating: false,
       timeoutModal: false,
       routes: [],
+      selectedRoute: undefined,
       minutes: 0,
       seconds: 0,
       stations: {},
@@ -56,7 +57,8 @@ class TravelHandler extends Component {
         TravelHandler.handleConnection,
         TravelHandler.handleResult,
         TravelHandler.timeout,
-        TravelHandler.finishCalculating),
+        TravelHandler.finishCalculating,
+        TravelHandler.streamEndCallback),
     };
 
     this.setStop = this.setStop.bind(this);
@@ -123,7 +125,7 @@ class TravelHandler extends Component {
    * @param departure:boolean
    * @param keepCalculating:boolean, true if the calculator should keep calculating after the first result
    */
-  setData(datetime, latest, departure, keepCalculating=false) {
+  setData(datetime, latest, departure, keepCalculating=true) {
     const {arrivalStop, departureStop, calculator} = this.state;
     const province = departureStop.province;
     if (province === arrivalStop.province) { // TODO remove this if the calculator can handle cross-province-requests
@@ -136,7 +138,6 @@ class TravelHandler extends Component {
         routes: [],
         selectedRoute: undefined
       }, () => {
-        console.log("State:", this.state);
         calculator.queryPlanner(province, arrivalStop.id, departureStop.id, datetime, latest, keepCalculating);
       })
     } else {
@@ -218,9 +219,12 @@ class TravelHandler extends Component {
       }
     }
 
-    console.log("Parsed:", parsedResult);
     self.setState({routes: [...self.state.routes, parsedResult]});
     TravelHandler.handleResult(result, keepCalculating);
+  }
+
+  static streamEndCallback(self) {
+    window.dispatchEvent(new CustomEvent("cancel"));
   }
 
   /**
@@ -245,9 +249,10 @@ class TravelHandler extends Component {
         <Modal basic size="small" open={timeoutModal} onClose={() => this.setState({timeoutModal: false})}>
           <Header content="Timeout"/>
           <Modal.Content>
-            <p>The route calculation has reached a timeout. Please try again.</p>
+            <p>The route calculation has reached a timeout. No routes were found. Please try again.</p>
           </Modal.Content>
         </Modal>
+
         <Segment>
           <TravelForm departureStop={departureStop}
                       arrivalStop={arrivalStop}
@@ -255,6 +260,16 @@ class TravelHandler extends Component {
                       setDataCallback={this.setData}
           />
         </Segment>
+        <Segment>
+          <InteractiveMap provinces={this.provinces}
+                          departureStop={departureStop}
+                          arrivalStop={arrivalStop}
+                          stations={stations}
+                          calculating={calculating}
+                          setStopCallback={this.setStop}
+          />
+        </Segment>
+
         {calculating &&
         <Segment>
           <Grid className="middle aligned">
@@ -275,15 +290,7 @@ class TravelHandler extends Component {
             </Grid.Column>
           </Grid>
         </Segment>}
-        <Segment>
-          <InteractiveMap provinces={this.provinces}
-                          departureStop={departureStop}
-                          arrivalStop={arrivalStop}
-                          stations={stations}
-                          calculating={calculating}
-                          setStopCallback={this.setStop}
-          />
-        </Segment>
+
         {routes.length > 0 ?
           <Segment>
             <RouteView routes={routes}/>
