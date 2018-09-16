@@ -11,6 +11,7 @@ class InteractiveMap extends Component {
   DEFAULT_ID = "";
   CUSTOM_ID = "CUSTOM";
   CONNECTION_COLOR = "rgba(3, 112, 170, 0.6)";
+  GREY = "rgba(100, 100, 100, 1)";
   popup;
 
   /* Icons & icon constants */
@@ -136,13 +137,14 @@ class InteractiveMap extends Component {
       this.drawConnection(event.detail.connection);
     });
     window.addEventListener("result", (event) => {
-      this.drawResult(event.detail.result, !event.detail.keepCalculating);
+      this.drawResult(event.detail.result, event.detail.id, !event.detail.keepCalculating);
     });
     window.addEventListener("submit", () => {
       this.clearAllLines();
       map.fitBounds(selectedStops.getBounds());
     });
     window.addEventListener("cancel", this.clearCalculationLines);
+    window.addEventListener("select", (event) => this.selectRoute(event.detail.routeId))
   }
 
   /* Markers -------------------------------------------------------------------------------------------------------- */
@@ -226,6 +228,18 @@ class InteractiveMap extends Component {
 
   /* Polylines  ----------------------------------------------------------------------------------------------------- */
 
+  setColor(layers, color=true) {
+    layers = layers["_layers"];
+    if (layers && Object.keys(layers).length > 0) {
+      for (const l in layers) {
+        if (layers.hasOwnProperty(l)) {
+          const layer = layers[l];
+          layer.setStyle(color ? {color: layer.color} : {color: this.GREY});
+        }
+      }
+    }
+  }
+
   /**
    * Draw a line on the given connection, from departureStop to arrivalStop.
    * @param connection:object with departureStop and arrivalStop
@@ -273,8 +287,9 @@ class InteractiveMap extends Component {
    * @param connections: array with connection objects
    * @param lastResult:boolean, true if this is the last calculated resulted
    */
-  drawResult(connections, lastResult) {
+  drawResult(connections, routeId, lastResult) {
     const {routeLines, map} = this.state;
+    console.log(connections);
     if (lastResult) this.clearCalculationLines();
     const group = L.featureGroup();
 
@@ -288,8 +303,18 @@ class InteractiveMap extends Component {
         map.addLayer(polyline);
       }
     }
+    group.routeId = routeId;
     routeLines.push(group);
+    console.log("routeLines:", routeLines);
     map.fitBounds(group.getBounds());
+    this.selectRoute(group);
+  }
+
+  selectRoute(result) {
+    console.log("selectRoute");
+    for (const route of this.state.routeLines) {
+      this.setColor(route, route.routeId === result.routeId);
+    }
   }
 
   /* (De)Selecting -------------------------------------------------------------------------------------------------- */

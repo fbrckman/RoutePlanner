@@ -6,13 +6,14 @@ import './RouteView.css';
 class RouteView extends Component {
 
   render() {
-    const {routes} = this.props;
+    const {routes, selected, selectRouteCallback} = this.props;
     if (routes && routes.length > 0) {
       return routes.map(function (route) {
-        const start = route[0], end = route[route.length - 1];
+        const start = route.trips[0], end = route.trips[route.trips.length - 1];
         const diff = moment.duration(moment(end).diff(moment(start)));
         return (
-          <Segment key={'route' + routes.indexOf(route)}>
+          <Segment key={'route' + routes.indexOf(route)} onClick={() => selectRouteCallback(route.routeId)}
+                   secondary={selected !== route.routeId}>
             <Header as='h3'>Route Found</Header>
             <Grid columns={3}>
               <Grid.Row>
@@ -24,11 +25,11 @@ class RouteView extends Component {
                 </Grid.Column>
                 <Grid.Column>
                   <strong>Travel time:</strong> {diff.humanize()} <br/>
-                  {route.length - 1} switches
+                  {route.trips.length - 1} switches
                 </Grid.Column>
               </Grid.Row>
             </Grid>
-            {route.map(function (section) {
+            {route.trips.map(function (section) {
               let color = section.color === 'cyan' ? 'teal'
                 : section.color === 'magenta' ? 'pink' : section.color;
               return (

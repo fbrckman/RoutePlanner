@@ -7,6 +7,7 @@ import RouteView from './RouteView/RouteView';
 
 class TravelHandler extends Component {
 
+  id;
   provinces = {
     "Antwerpen": {
       stopsUrl: "https://belgium.linkedconnections.org/delijn/Antwerpen/stops",
@@ -61,12 +62,17 @@ class TravelHandler extends Component {
         TravelHandler.streamEndCallback),
     };
 
+    this.id = 0;
     this.setStop = this.setStop.bind(this);
     this.setData = this.setData.bind(this);
     this.second = this.second.bind(this);
     this.resetTimer = this.resetTimer.bind(this);
+
+    TravelHandler.handleConnection = TravelHandler.handleConnection.bind(this);
+    TravelHandler.handleResult = TravelHandler.handleResult.bind(this);
     TravelHandler.timeout = TravelHandler.timeout.bind(this);
     TravelHandler.finishCalculating = TravelHandler.finishCalculating.bind(this);
+    this.selectRoute = this.selectRoute.bind(this);
 
     window.addEventListener("cancel", () => this.setState({calculating: false}));
   }
@@ -77,7 +83,7 @@ class TravelHandler extends Component {
     }, 1000);
   }
 
-  /* Events ----------------------------------------------------------------------------------------------------------*/
+  /* Events & Callbacks ----------------------------------------------------------------------------------------------*/
 
   /**
    * Dispatch an event with the given connection.
@@ -94,12 +100,95 @@ class TravelHandler extends Component {
    * @param result:array of connections
    * @param keepCalculating:boolean, true if the calculator should continue after the first result
    */
-  static handleResult(result, keepCalculating) {
+  static handleResult(result, routeId, keepCalculating) {
+    console.log(result, routeId);
     window.dispatchEvent(new CustomEvent("result", {
       detail: {
         result: result,
+        id: routeId,
         keepCalculating: keepCalculating
       }
+    }));
+  }
+
+  static timeout(self) {
+    if (self.state.calculating) {
+      self.setState({timeoutModal: true});
+      window.dispatchEvent(new CustomEvent("cancel"));
+    }
+  }
+
+  static streamEndCallback(self) {
+    window.dispatchEvent(new CustomEvent("cancel"));
+  }
+
+  /**
+   * Callback funtion.
+   * Assign a color to every routeLines in the result. Assign a name to every stop.
+   * Parse the result to contain the start and end of every trip of the routeLines.
+   *    -> Used to fill in the RouteView and make it more readable.
+   * @param self
+   * @param result:array of connection objects, one connection object for each trip of the routeLines
+   * @param keepCalculating:boolean, true if the Calculator will keep calculating routes
+   */
+  static finishCalculating(self, result, keepCalculating) {
+    console.log("Result:", result);
+    if (!keepCalculating) {
+      console.log("Finish calculating...");
+      self.setState({calculating: false});
+    }
+    const {stations} = self.state;
+    const colorSet = {};
+    let c = 0;
+
+    for (const connection of result) {
+      const route = connection["http://vocab.gtfs.org/terms#route"];
+      if (colorSet[route] === undefined) {
+        colorSet[route] = self.colors[c];
+        c = (c + 1) % self.colors.length;
+      }
+      connection.color = colorSet[route];
+
+      connection.arrivalStopName = stations[connection.arrivalStop].name;
+      connection.departureStopName = stations[connection.departureStop].name;
+    }
+
+    console.log("Applied colors");
+    const routeUrl = "http://vocab.gtfs.org/terms#routeLines", signUrl = "http://vocab.gtfs.org/terms#headsign";
+    const parsedResult = [TravelHandler.cloneConnection(result[0])];
+    let lastConnection = parsedResult[0];
+    lastConnection.name = lastConnection[signUrl].replace(/"/g, "");
+
+    for (const connection of result.slice(1, result.length)) {
+      connection.name = connection[signUrl].replace(/"/g, "");
+      if (connection[routeUrl] === lastConnection[routeUrl] && connection.name === lastConnection.name) {
+        lastConnection.arrivalStop = connection.arrivalStop;
+        lastConnection.arrivalTime = connection.arrivalTime;
+        lastConnection.arrivalStopName = connection.arrivalStopName;
+      } else {
+        lastConnection = TravelHandler.cloneConnection(connection);
+        parsedResult.push(lastConnection);
+      }
+    }
+
+    console.log("Parsed result");
+    const routeId = self.id;
+    self.id += 1;
+    const parsedRoute = {
+      routeId: routeId,
+      trips: parsedResult,
+    };
+
+    self.setState({routes: [...self.state.routes, parsedRoute]});
+    this.selectRoute(result);
+    console.log("Result:", result);
+    TravelHandler.handleResult(result, routeId, keepCalculating);
+  }
+
+  selectRoute(routeId) {
+    this.setState({selectedRoute: routeId});
+    window.dispatchEvent(new CustomEvent("select", {
+      detail: {routeId: routeId}
     }));
   }
 
@@ -167,66 +256,6 @@ class TravelHandler extends Component {
 
   /* Misc. -----------------------------------------------------------------------------------------------------------*/
 
-  static timeout(self) {
-    self.setState({timeoutModal: true});
-    window.dispatchEvent(new CustomEvent("cancel"));
-  }
-
-  /**
-   * Callback funtion.
-   * Assign a color to every routeLines in the result. Assign a name to every stop.
-   * Parse the result to contain the start and end of every trip of the routeLines.
-   *    -> Used to fill in the RouteView and make it more readable.
-   * @param self
-   * @param result:array of connection objects, one connection object for each trip of the routeLines
-   * @param keepCalculating:boolean, true if the Calculator will keep calculating routes
-   */
-  static finishCalculating(self, result, keepCalculating) {
-    if (!keepCalculating) {
-      console.log("Finish calculating...");
-      self.setState({calculating: false});
-    }
-    const {stations} = self.state;
-    const colorSet = {};
-    let c = 0;
-
-    for (const connection of result) {
-      const route = connection["http://vocab.gtfs.org/terms#route"];
-      if (colorSet[route] === undefined) {
-        colorSet[route] = self.colors[c];
-        c = (c + 1) % self.colors.length;
-      }
-      connection.color = colorSet[route];
-
-      connection.arrivalStopName = stations[connection.arrivalStop].name;
-      connection.departureStopName = stations[connection.departureStop].name;
-    }
-
-    const routeUrl = "http://vocab.gtfs.org/terms#routeLines", signUrl = "http://vocab.gtfs.org/terms#headsign";
-    const parsedResult = [TravelHandler.cloneConnection(result[0])];
-    let lastConnection = parsedResult[0];
-    lastConnection.name = lastConnection[signUrl].replace(/"/g, "");
-
-    for (const connection of result.slice(1, result.length)) {
-      connection.name = connection[signUrl].replace(/"/g, "");
-      if (connection[routeUrl] === lastConnection[routeUrl] && connection.name === lastConnection.name) {
-        lastConnection.arrivalStop = connection.arrivalStop;
-        lastConnection.arrivalTime = connection.arrivalTime;
-        lastConnection.arrivalStopName = connection.arrivalStopName;
-      } else {
-        lastConnection = TravelHandler.cloneConnection(connection);
-        parsedResult.push(lastConnection);
-      }
-    }
-
-    self.setState({routes: [...self.state.routes, parsedResult]});
-    TravelHandler.handleResult(result, keepCalculating);
-  }
-
-  static streamEndCallback(self) {
-    window.dispatchEvent(new CustomEvent("cancel"));
-  }
-
   /**
    * Make a copy of the given connection.
    * @param connection: connection object to be cloned
@@ -243,7 +272,7 @@ class TravelHandler extends Component {
   /* Render ----------------------------------------------------------------------------------------------------------*/
 
   render() {
-    const {departureStop, arrivalStop, calculating, routes, minutes, seconds, stations, timeoutModal} = this.state;
+    const {departureStop, arrivalStop, calculating, routes, selectedRoute, minutes, seconds, stations, timeoutModal} = this.state;
     return (
       <div>
         <Modal basic size="small" open={timeoutModal} onClose={() => this.setState({timeoutModal: false})}>
@@ -293,7 +322,7 @@ class TravelHandler extends Component {
 
         {routes.length > 0 ?
           <Segment>
-            <RouteView routes={routes}/>
+            <RouteView routes={routes} selected={selectedRoute} selectRouteCallback={this.selectRoute}/>
           </Segment>
           : <div/>}
       </div>
