@@ -1,5 +1,6 @@
 import React, {Component} from 'react';
 import {Segment, Loader, Grid, Button, Icon, Modal, Header} from 'semantic-ui-react';
+import L from 'leaflet';
 import TravelForm from './TravelForm';
 import Calculator from './Calculator';
 import InteractiveMap from './InteractiveMap/InteractiveMap';
@@ -45,6 +46,7 @@ class TravelHandler extends Component {
       datetime: new Date(),
       latest: new Date(),
       departure: false,
+      fetching: true,
       calculating: false,
       timeoutModal: false,
       routes: [],
@@ -52,6 +54,7 @@ class TravelHandler extends Component {
       minutes: 0,
       seconds: 0,
       stations: {},
+      nmbs: {markers: undefined, stops: new Set(), shown: false,},
       calculator: new Calculator(
         this,
         this.provinces,
@@ -79,6 +82,53 @@ class TravelHandler extends Component {
   }
 
   componentDidMount() {
+    const self = this;
+    const provinces = this.provinces;
+    const {stations, nmbs} = this.state;
+
+    // NMBS
+    window.fetch("https://irail.be/stations/NMBS", {headers: {'accept': 'application/ld+json'}}).then(function (response) {
+      return response.json();
+    }).then(function (stationsNMBS) {
+      stationsNMBS["@graph"].forEach(function (station) {
+        const key = station["@id"];
+        nmbs.stops.add(key);
+        station.point = new L.LatLng(station.latitude, station.longitude);
+        stations[key] = station;
+      });
+
+      // Keeping track of the number of fetched provinces
+      let fetched = 0;
+
+      // De Lijn
+      for (let province of Object.keys(provinces)) {
+        window.fetch(provinces[province].stopsUrl).then(function (response) {
+          return response.json();
+        }).then(function (stopsDeLijn) {
+          // console.log(province, "fetched");
+          stopsDeLijn["@graph"].forEach(function (stop) {
+            const key = stop["@id"];
+            provinces[province].stops.add(key);
+            stop.province = province;
+            stop.point = new L.LatLng(stop.latitude, stop.longitude);
+            stations[key] = stop;
+          });
+
+          // FIXME this part causes the no-loop-func warning
+          // Keep the checkboxes in a fetching state while the data is fetching
+          fetched += 1;
+          if (fetched === Object.keys(provinces).length) {
+            self.setState({fetching: false});
+            window.dispatchEvent(new CustomEvent("update", {
+              detail: {province: province}
+            }));
+          }
+        });
+      }
+    }).catch(function (ex) {
+      console.error(ex);
+    });
+
     window.setInterval(() => {
       if (this.state.calculating) this.second();
     }, 1000);
@@ -119,7 +169,7 @@ class TravelHandler extends Component {
     }
   }
 
-  static streamEndCallback(self) {
+  static streamEndCallback() {
     window.dispatchEvent(new CustomEvent("cancel"));
   }
 
@@ -184,7 +234,6 @@ class TravelHandler extends Component {
 
   selectRoute(routeId) {
     this.setState({selectedRoute: routeId});
-    console.log("routeID:", routeId);
     window.dispatchEvent(new CustomEvent("select", {
       detail: {routeId: routeId}
     }));
@@ -276,7 +325,14 @@ class TravelHandler extends Component {
   /* Render ----------------------------------------------------------------------------------------------------------*/
 
   render() {
-    const {departureStop, arrivalStop, calculating, routes, selectedRoute, minutes, seconds, stations, timeoutModal} = this.state;
+    const {
+      departureStop, arrivalStop,
+      fetching, calculating,
+      routes, selectedRoute,
+      minutes, seconds,
+      stations, nmbs,
+      timeoutModal
+    } = this.state;
     return (
       <div>
         <Modal basic size="small" open={timeoutModal} onClose={() => this.setState({timeoutModal: false})}>
@@ -296,10 +352,12 @@ class TravelHandler extends Component {
         </Segment>
         <Segment>
           <InteractiveMap provinces={this.provinces}
+                          stations={stations}
+                          nmbs={nmbs}
                           departureStop={departureStop}
                           arrivalStop={arrivalStop}
-                          stations={stations}
                           calculating={calculating}
+                          fetching={fetching}
                           setStopCallback={this.setStop}
           />
         </Segment>
