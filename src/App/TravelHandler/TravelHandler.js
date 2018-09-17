@@ -1,5 +1,5 @@
 import React, {Component} from 'react';
-import {Segment, Loader, Grid, Button, Icon} from 'semantic-ui-react';
+import {Segment, Loader, Grid, Button, Icon, Modal, Header} from 'semantic-ui-react';
 import TravelForm from './TravelForm';
 import Calculator from './Calculator';
 import InteractiveMap from './InteractiveMap/InteractiveMap';
@@ -7,6 +7,7 @@ import RouteView from './RouteView/RouteView';
 
 class TravelHandler extends Component {
 
+  id;
   provinces = {
     "Antwerpen": {
       stopsUrl: "https://belgium.linkedconnections.org/delijn/Antwerpen/stops",
@@ -34,7 +35,7 @@ class TravelHandler extends Component {
       markers: undefined, stops: new Set(), shown: false
     },
   };
-  colors = ['red', 'teal', 'yellow', 'pink', 'green', 'purple', 'orange', 'blue'];
+  colors = ['red', 'cyan', 'yellow', 'magenta', 'green', 'purple', 'orange', 'blue'];
 
   constructor() {
     super();
@@ -45,36 +46,97 @@ class TravelHandler extends Component {
       latest: new Date(),
       departure: false,
       calculating: false,
-      route: undefined,
+      timeoutModal: false,
+      routes: [],
+      selectedRoute: undefined,
+      minutes: 0,
+      seconds: 0,
+      stations: {},
       calculator: new Calculator(
         this,
         this.provinces,
         TravelHandler.handleConnection,
         TravelHandler.handleResult,
-        TravelHandler.finishCalculating),
+        TravelHandler.timeout,
+        TravelHandler.finishCalculating,
+        TravelHandler.streamEndCallback),
     };
 
+    this.id = 0;
     this.setStop = this.setStop.bind(this);
     this.setData = this.setData.bind(this);
+    this.second = this.second.bind(this);
+    this.resetTimer = this.resetTimer.bind(this);
+
+    TravelHandler.handleConnection = TravelHandler.handleConnection.bind(this);
+    TravelHandler.handleResult = TravelHandler.handleResult.bind(this);
+    TravelHandler.timeout = TravelHandler.timeout.bind(this);
     TravelHandler.finishCalculating = TravelHandler.finishCalculating.bind(this);
+    this.selectRoute = this.selectRoute.bind(this);
+
+    window.addEventListener("cancel", () => this.setState({calculating: false}));
   }
 
+  componentDidMount() {
+    window.setInterval(() => {
+      if (this.state.calculating) this.second();
+    }, 1000);
+  }
+
+  /* Events & Callbacks ----------------------------------------------------------------------------------------------*/
+
+  /**
+   * Dispatch an event with the given connection.
+   * @param connection
+   */
   static handleConnection(connection) {
-    console.log(connection);
     window.dispatchEvent(new CustomEvent("connection", {
       detail: {connection: connection}
     }));
   }
 
-  static handleResult(result) {
+  /**
+   * Dispatch an event with the given result
+   * @param result:array of connections
+   * @param routeId:number, id of the given route
+   * @param keepCalculating:boolean, true if the calculator should continue after the first result
+   */
+  static handleResult(result, routeId, keepCalculating) {
     window.dispatchEvent(new CustomEvent("result", {
-      detail: {result: result}
+      detail: {
+        result: result,
+        id: routeId,
+        keepCalculating: keepCalculating
+      }
     }));
   }
 
-  static finishCalculating(self, result) {
-    console.log("Finish calculating...");
-    self.setState({calculating: false});
+  static timeout(self) {
+    if (self.state.calculating) {
+      self.setState({timeoutModal: true});
+      window.dispatchEvent(new CustomEvent("cancel"));
+    }
+  }
+
+  static streamEndCallback(self) {
+    window.dispatchEvent(new CustomEvent("cancel"));
+  }
+
+  /**
+   * Callback funtion.
+   * Assign a color to every routeLines in the result. Assign a name to every stop.
+   * Parse the result to contain the start and end of every trip of the routeLines.
+   *    -> Used to fill in the RouteView and make it more readable.
+   * @param self
+   * @param result:array of connection objects, one connection object for each trip of the routeLines
+   * @param keepCalculating:boolean, true if the Calculator will keep calculating routes
+   */
+  static finishCalculating(self, result, keepCalculating) {
+    if (!keepCalculating) {
+      console.log("Finish calculating...");
+      self.setState({calculating: false});
+    }
+    const {stations} = self.state;
     const colorSet = {};
     let c = 0;
 
@@ -85,26 +147,117 @@ class TravelHandler extends Component {
         c = (c + 1) % self.colors.length;
       }
       connection.color = colorSet[route];
+
+      connection.arrivalStopName = stations[connection.arrivalStop].name;
+      connection.departureStopName = stations[connection.departureStop].name;
     }
 
+    const routeUrl = "http://vocab.gtfs.org/terms#routeLines", signUrl = "http://vocab.gtfs.org/terms#headsign";
     const parsedResult = [TravelHandler.cloneConnection(result[0])];
     let lastConnection = parsedResult[0];
+    lastConnection.name = lastConnection[signUrl].replace(/"/g, "");
 
-    for (const connection of result.slice(0, -1)) {
-      if (connection["http://vocab.gtfs.org/terms#route"] === lastConnection["http://vocab.gtfs.org/terms#route"]) {
+    for (const connection of result.slice(1, result.length)) {
+      connection.name = connection[signUrl].replace(/"/g, "");
+      if (connection[routeUrl] === lastConnection[routeUrl] && connection.name === lastConnection.name) {
         lastConnection.arrivalStop = connection.arrivalStop;
         lastConnection.arrivalTime = connection.arrivalTime;
+        lastConnection.arrivalStopName = connection.arrivalStopName;
       } else {
         lastConnection = TravelHandler.cloneConnection(connection);
         parsedResult.push(lastConnection);
       }
     }
 
-    self.setState({route: parsedResult});
+    const routeId = self.id;
+    self.id += 1;
+    const parsedRoute = {
+      routeId: routeId,
+      trips: parsedResult,
+    };
 
-    TravelHandler.handleResult(result);
+    self.setState({routes: [...self.state.routes, parsedRoute]});
+    TravelHandler.handleResult(result, routeId, keepCalculating);
+    self.selectRoute(routeId);
   }
 
+  selectRoute(routeId) {
+    console.log("Select route:", routeId);
+    this.setState({selectedRoute: routeId});
+    window.dispatchEvent(new CustomEvent("select", {
+      detail: {routeId: routeId}
+    }));
+  }
+
+  /* Update state ----------------------------------------------------------------------------------------------------*/
+
+  /**
+   * Set the given stop as either departureStop or arrivalStop.
+   * @param newStop
+   * @param departure:boolean, true if the new stop should replace the current departureStop
+   */
+  setStop(newStop, departure) {
+    this.setState(departure ? {departureStop: newStop} : {arrivalStop: newStop});
+  }
+
+  /**
+   * Check if the departure and arrival province are the same. // TODO remove this
+   * Reset the timer. Set the current state with the given arguments.
+   * Query the calculator with the current state.
+   * // TODO keepCalculatins is false, since the used library stops calculating after the first result anyway
+   *
+   * @param datetime:Date
+   * @param latest:Date
+   * @param departure:boolean
+   * @param keepCalculating:boolean, true if the calculator should keep calculating after the first result
+   */
+  setData(datetime, latest, departure, keepCalculating=true) {
+    const {arrivalStop, departureStop, calculator} = this.state;
+    const province = departureStop.province;
+    if (province === arrivalStop.province) { // TODO remove this if the calculator can handle cross-province-requests
+      this.resetTimer();
+      this.setState({
+        datetime: datetime,
+        latest: latest,
+        departure: departure,
+        calculating: true,
+        routes: [],
+        selectedRoute: undefined
+      }, () => {
+        calculator.queryPlanner(province, arrivalStop.id, departureStop.id, datetime, latest, keepCalculating);
+      })
+    } else {
+      console.error("These stops are from different provinces.");
+    }
+  }
+
+  /**
+   * Add a second to the timer.
+   */
+  second() {
+    const {minutes, seconds} = this.state;
+    let newM = minutes, newS = seconds + 1;
+    if (newS === 60) {
+      newM += 1;
+      newS = 0;
+    }
+    this.setState({minutes: newM, seconds: newS});
+  }
+
+  /**
+   * Reset the timer to zero.
+   */
+  resetTimer() {
+    this.setState({minutes: 0, seconds: 0});
+  }
+
+  /* Misc. -----------------------------------------------------------------------------------------------------------*/
+
+  /**
+   * Make a copy of the given connection.
+   * @param connection: connection object to be cloned
+   * @returns {{}}: connection object that has the same properties and values as the given object
+   */
   static cloneConnection(connection) {
     const output = {};
     for (const key of Object.keys(connection)) {
@@ -113,61 +266,62 @@ class TravelHandler extends Component {
     return output;
   }
 
-  setStop(newStop, departure) {
-    this.setState(departure ? {departureStop: newStop} : {arrivalStop: newStop});
-  }
-
-  setData(datetime, latest, departure) {
-    const {arrivalStop, departureStop, calculator} = this.state;
-    const province = departureStop.province;
-    if (province === arrivalStop.province) {
-      this.setState({
-        datetime: datetime, latest: latest, departure: departure, calculating: true,
-      }, () => {
-        calculator.query(province, arrivalStop.id, departureStop.id, datetime, latest);
-      })
-    } else {
-      console.error("These stops are from different provinces.");
-    }
-  }
+  /* Render ----------------------------------------------------------------------------------------------------------*/
 
   render() {
-    const {departureStop, arrivalStop, calculating, route} = this.state;
+    const {departureStop, arrivalStop, calculating, routes, selectedRoute, minutes, seconds, stations, timeoutModal} = this.state;
     return (
       <div>
+        <Modal basic size="small" open={timeoutModal} onClose={() => this.setState({timeoutModal: false})}>
+          <Header content="Timeout"/>
+          <Modal.Content>
+            <p>The route calculation has reached a timeout. No routes were found. Please try again.</p>
+          </Modal.Content>
+        </Modal>
+
         <Segment>
           <TravelForm departureStop={departureStop}
                       arrivalStop={arrivalStop}
+                      calculating={calculating}
                       setDataCallback={this.setData}
           />
         </Segment>
+        <Segment>
+          <InteractiveMap provinces={this.provinces}
+                          departureStop={departureStop}
+                          arrivalStop={arrivalStop}
+                          stations={stations}
+                          calculating={calculating}
+                          setStopCallback={this.setStop}
+          />
+        </Segment>
+
         {calculating &&
         <Segment>
           <Grid className="middle aligned">
             <Grid.Column width={1}>
-              <Button className='icon red' onClick={() => {
-                window.dispatchEvent(new CustomEvent("cancel"));
-                this.setState({calculating: false});
-              }}>
+              <Button className='icon red' onClick={() => window.dispatchEvent(new CustomEvent("cancel"))}>
                 <Icon name='times'/>
               </Button>
             </Grid.Column>
             <Grid.Column width={1}>
               <Loader active inline/>
             </Grid.Column>
-            <Grid.Column>Calculating...</Grid.Column>
+            <Grid.Column width={8}>
+              <span>Calculating... </span>
+              <span style={{color: 'lightgrey'}}>
+                {minutes > 0 ? minutes === 1 ? '1 minute, ' : minutes + ' minutes, ' : ''}
+                {seconds === 1 ? '1 second' : seconds + ' seconds'}
+              </span>
+            </Grid.Column>
           </Grid>
         </Segment>}
-        <Segment>
-          <InteractiveMap provinces={this.provinces}
-                          departureStop={departureStop}
-                          arrivalStop={arrivalStop}
-                          setStopCallback={this.setStop}
-          />
-        </Segment>
-        <Segment hidden={route === undefined}>
-          <RouteView route={route}/>
-        </Segment>
+
+        {routes.length > 0 ?
+          <Segment>
+            <RouteView routes={routes} selected={selectedRoute} selectRouteCallback={this.selectRoute}/>
+          </Segment>
+          : <div/>}
       </div>
     );
   }

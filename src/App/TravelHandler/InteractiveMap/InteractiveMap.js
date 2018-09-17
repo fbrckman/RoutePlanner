@@ -3,14 +3,15 @@ import 'whatwg-fetch';
 import L from 'leaflet';
 import 'leaflet.markercluster';
 import './InteractiveMap.css';
-import {Dimmer, Loader, Grid} from 'semantic-ui-react';
+import {Dimmer, Loader, Grid, Button} from 'semantic-ui-react';
 import ProvinceCheckbox from './ProvinceCheckbox/ProvinceCheckbox';
 
 class InteractiveMap extends Component {
 
   DEFAULT_ID = "";
   CUSTOM_ID = "CUSTOM";
-  CONNECTION_COLOR = "rgba(3, 112, 170, 0.5)";
+  CONNECTION_COLOR = "rgba(3, 112, 170, 0.6)";
+  GREY = "rgba(100, 100, 100, 1)";
   popup;
 
   /* Icons & icon constants */
@@ -41,12 +42,12 @@ class InteractiveMap extends Component {
     this.state = {
       fetching: true,
       rendering: false,
-      stations: {},
       markers: {},
       markerLayer: L.markerClusterGroup(),
       selectedStops: L.featureGroup(),
       lines: L.layerGroup(),
-      route: L.layerGroup(),
+      routeLines: [],
+      visibleLines: false,
       map: undefined,
       nmbs: {
         markers: undefined, stops: new Set(), shown: false,
@@ -57,13 +58,17 @@ class InteractiveMap extends Component {
     this.renderMarkers = this.renderMarkers.bind(this);
     this.showProvinces = this.showProvinces.bind(this);
 
+    this.drawPolyline = this.drawPolyline.bind(this);
+    this.drawConnection = this.drawConnection.bind(this);
+    this.drawResult = this.drawResult.bind(this);
+
     this.select = this.select.bind(this);
     this.selectStop = this.selectStop.bind(this);
     this.deselectStop = this.deselectStop.bind(this);
 
-    this.drawConnection = this.drawConnection.bind(this);
-    this.drawResult = this.drawResult.bind(this);
-    this.clearLines = this.clearLines.bind(this);
+    this.clearLayers = this.clearLayers.bind(this);
+    this.clearCalculationLines = this.clearCalculationLines.bind(this);
+    this.clearAllLines = this.clearAllLines.bind(this);
 
     this.update = this.update.bind(this);
     this.onMapClick = this.onMapClick.bind(this);
@@ -71,8 +76,8 @@ class InteractiveMap extends Component {
 
   componentDidMount() {
     const self = this;
-    const {markerLayer, nmbs, stations, selectedStops} = this.state;
-    const {provinces} = this.props;
+    const {markerLayer, nmbs, selectedStops} = this.state;
+    const {provinces, stations} = this.props;
 
     // Setup the map
     const map = L.map('mapid').setView([50.85, 4.35, 5.2], 8);
@@ -129,21 +134,20 @@ class InteractiveMap extends Component {
     map.addLayer(markerLayer);
 
     window.addEventListener("connection", (event) => {
-      console.log("heard");
       this.drawConnection(event.detail.connection);
     });
     window.addEventListener("result", (event) => {
-      this.drawResult(event.detail.result);
+      this.drawResult(event.detail.result, event.detail.id, !event.detail.keepCalculating);
     });
     window.addEventListener("submit", () => {
-      console.log("submit");
-      this.clearLines();
+      this.clearAllLines();
       map.fitBounds(selectedStops.getBounds());
     });
-    window.addEventListener("cancel", this.clearLines);
+    window.addEventListener("cancel", this.clearCalculationLines);
+    window.addEventListener("select", (event) => this.selectRoute(event.detail.routeId))
   }
 
-  /* Markers & Rendering -------------------------------------------------------------------------------------------- */
+  /* Markers -------------------------------------------------------------------------------------------------------- */
 
   /**
    * Create a marker for the given station with the given label.
@@ -166,7 +170,8 @@ class InteractiveMap extends Component {
    * @param province
    */
   renderMarkers(province) {
-    const {markers, stations, nmbs} = this.state;
+    const {markers, nmbs} = this.state;
+    const {stations} = this.props;
     const p = province !== undefined;
     const group = L.layerGroup();
 
@@ -221,13 +226,118 @@ class InteractiveMap extends Component {
     callback();
   }
 
+  /* Polylines  ----------------------------------------------------------------------------------------------------- */
+
+  static bringToFront(layers) {
+    layers = layers["_layers"];
+    if (layers && Object.keys(layers).length > 0) {
+      for (const l in layers) {
+        if (layers.hasOwnProperty(l)) {
+          const layer = layers[l];
+          layer.bringToFront();
+        }
+      }
+    }
+  }
+
+  setColor(layers, color=true) {
+    layers = layers["_layers"];
+    if (layers && Object.keys(layers).length > 0) {
+      for (const l in layers) {
+        if (layers.hasOwnProperty(l)) {
+          const layer = layers[l];
+          layer.setStyle(color ? {color: layer.color} : {color: this.GREY});
+        }
+      }
+    }
+  }
+
+  /**
+   * Draw a line on the given connection, from departureStop to arrivalStop.
+   * @param connection:object with departureStop and arrivalStop
+   * @param color:string
+   * @param weight:number
+   * @returns L.Polyline
+   */
+  drawPolyline(connection, color, weight) {
+    let polyline = undefined;
+    const {stations} = this.props;
+    const start = stations[connection.departureStop], end = stations[connection.arrivalStop];
+    if (start === undefined) {
+      console.error("Station (departure) is undefined:", connection.departureStop);
+    } else if (end === undefined) {
+      console.error("Station (arrival) is undefined:", connection.arrivalStop);
+    } else {
+      this.setState({visibleLines: true});
+      const startPosition = start.point, endPosition = end.point;
+      polyline = L.polyline([startPosition, endPosition], {color: color, weight: weight});
+    }
+    return polyline
+  }
+
+  /**
+   * Draw a line on the given connection, from departureStop to arrivalStop.
+   * These are rendered while calculating.
+   * @param connection:object with departureStop and arrivalStop
+   */
+  drawConnection(connection) {
+    const polyline = this.drawPolyline(connection, this.CONNECTION_COLOR, 2);
+    if (polyline) {
+      const {lines, map} = this.state;
+      lines.addLayer(polyline);
+      map.addLayer(polyline);
+    }
+  }
+
+  /**
+   * Draw the result on the given connections.
+   * Used when drawing the resulting routeLines.
+   * This line is thicker and more colorful than the "calculating"-connections.
+   * For each routeLines, the line gets another color.
+   * A popup with the name of the routeLines will open on mousover.
+   *
+   * @param connections: array with connection objects
+   * @param routeId:number, id of the route
+   * @param lastResult:boolean, true if this is the last calculated resulted
+   */
+  drawResult(connections, routeId, lastResult) {
+    const {routeLines, map} = this.state;
+    if (lastResult) this.clearCalculationLines();
+    const group = L.featureGroup();
+
+    for (const c of connections) {
+      const polyline = this.drawPolyline(c, c.color, 4);
+      if (polyline) {
+        const name = c["http://vocab.gtfs.org/terms#headsign"].replace(/"/g, "");
+        polyline.color = c.color;
+        polyline.bindPopup(name);
+        polyline.on("mouseover", () => polyline.openPopup());
+        group.addLayer(polyline);
+        map.addLayer(polyline);
+      }
+    }
+    group.routeId = routeId;
+    routeLines.push(group);
+    map.fitBounds(group.getBounds());
+    this.selectRoute(group.routeId);
+  }
+
+  selectRoute(routeId) {
+    for (const route of this.state.routeLines) {
+      this.setColor(route, route.routeId === routeId);
+      if (route.routeId === routeId) InteractiveMap.bringToFront(route);
+    }
+  }
+
   /* (De)Selecting -------------------------------------------------------------------------------------------------- */
 
   /**
    * Triggers the selection of the stop with the given key.
+   * Clear all drawn lines in the process.
    * @param key:string
    */
   select(key) {
+    this.clearAllLines();
     const {departureStop, arrivalStop} = this.props;
 
     if (departureStop.id === this.DEFAULT_ID) {
@@ -251,8 +361,8 @@ class InteractiveMap extends Component {
    */
   selectStop(key, departure, customLocation = false, lat = 0, lng = 0) {
     // const self = this;
-    const {map, stations, markers, markerLayer, selectedStops} = this.state;
-    const {arrivalStop} = this.props;
+    const {map, markers, markerLayer, selectedStops} = this.state;
+    const {arrivalStop, stations} = this.props;
     const station = stations[key], original = markers[key];
     const icon = departure ? this.greenIcon : this.redIcon;
 
@@ -314,6 +424,7 @@ class InteractiveMap extends Component {
 
   /**
    * Deselect either the departureStop or the arrivalStop.
+   * Clear all drawn lines in the process.
    * Remove the selected marker from the map and add the original marker back to the markerLayer.
    * Reset the stop in the state.
    * Show the markerLayer if needed.
@@ -321,6 +432,9 @@ class InteractiveMap extends Component {
    * @param customLocation:boolean, true if the stop has a custom location and is not a predefined stop
    */
   deselectStop(departure, customLocation = false) {
+    this.clearAllLines();
+    window.dispatchEvent(new CustomEvent("cancel"));
+
     const {map, markerLayer, selectedStops} = this.state;
     const {departureStop, arrivalStop} = this.props;
     const stop = departure ? departureStop : arrivalStop;
@@ -346,50 +460,40 @@ class InteractiveMap extends Component {
     InteractiveMap.setFieldVal(departure, "");
   }
 
-  /* Polylines  ----------------------------------------------------------------------------------------------------- */
+  /* Clear --------------------------------------------------------------------------------------------------------- */
 
-  drawPolyline(connection, color) {
-    let polyline = undefined;
-    const {stations} = this.state;
-    const start = stations[connection.departureStop], end = stations[connection.arrivalStop];
-    if (start === undefined) {
-      console.error("Station (departure) is undefined:", connection.departureStop);
-    } else if (end === undefined) {
-      console.error("Station (arrival) is undefined:", connection.arrivalStop);
-    } else {
-      const startPosition = start.point, endPosition = end.point;
-      polyline = L.polyline([startPosition, endPosition], {color: color});
-    }
-    return polyline
-  }
-
-  drawConnection(connection) {
-    const polyline = this.drawPolyline(connection, this.CONNECTION_COLOR);
-    if (polyline) {
-      const {lines, map} = this.state;
-      lines.addLayer(polyline);
-      map.addLayer(polyline);
-    }
-  }
-
-  drawResult(connections) {
-    const {route, map} = this.state;
-    for (const c of connections) {
-      const polyline = this.drawPolyline(c, c.color);
-      if (polyline) {
-        route.addLayer(polyline);
-        map.addLayer(polyline);
+  /**
+   * Clear the given layers from the map.
+   * @param layers:LayerGroup
+   */
+  clearLayers(layers) {
+    const {map} = this.state;
+    layers = layers["_layers"];
+    if (layers && Object.keys(layers).length > 0) {
+      for (const l in layers) {
+        if (layers.hasOwnProperty(l)) {
+          const layer = layers[l];
+          map.removeLayer(layer);
+        }
       }
     }
   }
 
-  // TODO fixme
-  clearLines() {
-    console.log("clearLines");
-    const {map, lines} = this.state;
-    console.log(this.state);
-    map.removeLayer(lines);
+  /**
+   * Clear the calculation lines from the map.
+   */
+  clearCalculationLines() {
+    this.clearLayers(this.state.lines);
     this.setState({lines: L.layerGroup()});
+  }
+
+  /**
+   * Clear the calculation lines and the routeLines from the map.
+   */
+  clearAllLines() {
+    this.clearCalculationLines();
+    for (const l of this.state.routeLines) this.clearLayers(l);
+    this.setState({routeLines: [], visibleLines: false});
   }
 
   /* Misc. ---------------------------------------------------------------------------------------------------------- */
@@ -428,22 +532,30 @@ class InteractiveMap extends Component {
   /* Render --------------------------------------------------------------------------------------------------------- */
 
   render() {
-    const {nmbs, rendering, fetching} = this.state;
-    const {provinces} = this.props;
+    const {nmbs, rendering, fetching, visibleLines} = this.state;
+    const {provinces, calculating} = this.props;
     return (
       <div>
         <Grid divided columns='equal'>
           <Grid.Column width={3}>
-            <ProvinceCheckbox
-              provinces={provinces} nmbs={nmbs} loading={fetching} func={(e) => this.update(e.target.name)}
-            />
+            <Grid.Row>
+              <ProvinceCheckbox
+                provinces={provinces} nmbs={nmbs} loading={fetching} disabled={calculating}
+                func={(e) => this.update(e.target.name)}
+              />
+            </Grid.Row>
+            <Grid.Row hidden={!visibleLines} align='center'>
+              <Button onClick={this.clearCalculationLines} content="Clear lines"/>
+            </Grid.Row>
           </Grid.Column>
           <Grid.Column>
-            <div id="mapid">
-              <Dimmer active={rendering}>
-                <Loader/>
-              </Dimmer>
-            </div>
+            <Grid.Row>
+              <div id="mapid">
+                <Dimmer active={rendering}>
+                  <Loader/>
+                </Dimmer>
+              </div>
+            </Grid.Row>
           </Grid.Column>
         </Grid>
       </div>

@@ -162,8 +162,8 @@ class TravelForm extends Component {
 
   render() {
     const self = this;
-    const {departure, submit, datetime, latest, customLatest, error} = this.state;
-    const {departureStop, arrivalStop} = this.props;
+    const {departure, datetime, latest, customLatest, error} = this.state;
+    const {departureStop, arrivalStop, calculating} = this.props;
     const valid = departureStop.id !== "" && arrivalStop.id !== "";
     const message = 'Please make sure that the latest moment of departure is ';
 
@@ -221,10 +221,10 @@ class TravelForm extends Component {
             <Form.Field width={13}/>
             <Form.Field width={3}>
               <Button.Group>
-                <Button className="icon" onClick={this.clear} disabled={true}>
+                <Button className="icon" onClick={this.clear} disabled={true || calculating}>
                   <Icon name="undo alternate"/>
                 </Button>
-                <Button content="Submit" className="green" onClick={this.handleSubmit} disabled={!valid}/>
+                <Button content="Submit" className="green" onClick={this.handleSubmit} disabled={!valid || calculating}/>
               </Button.Group>
             </Form.Field>
           </Form.Group>
