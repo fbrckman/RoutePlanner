@@ -182,7 +182,6 @@ class TravelHandler extends Component {
   }
 
   selectRoute(routeId) {
-    console.log("Select route:", routeId);
     this.setState({selectedRoute: routeId});
     window.dispatchEvent(new CustomEvent("select", {
       detail: {routeId: routeId}

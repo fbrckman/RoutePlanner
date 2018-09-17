@@ -19,6 +19,7 @@ class TravelForm extends Component {
       departure: true,
       submit: false,
       error: false,
+      invalidFormat: false,
     };
 
     this.handleSubmit = this.handleSubmit.bind(this);
@@ -116,17 +117,22 @@ class TravelForm extends Component {
    * @param time:boolean, true if the time should be set instead of the full date
    */
   handleDateTimeChange(e, setLatest = false, time = false) {
-    const {departure, customLatest, latest, datetime} = this.state;
-    this.setState({submit: false});
-    const dt = e["_d"];
-    const currentDT = setLatest ? latest : datetime;
-    const newDT = time
-      ? TravelForm.setTime(dt, TravelForm.setFullDate(currentDT, new Date()))
-      : TravelForm.setTime(currentDT, TravelForm.setFullDate(dt, new Date()));
-    this.setState(setLatest ? {latest: newDT} : {datetime: newDT});
+    if (!e["_d"]) {
+      this.setState({invalidFormat: true})
+    } else {
+      this.setState({invalidFormat: false});
+      const {departure, customLatest, latest, datetime} = this.state;
+      this.setState({submit: false});
+      const dt = e["_d"];
+      const currentDT = setLatest ? latest : datetime;
+      const newDT = time
+        ? TravelForm.setTime(dt, TravelForm.setFullDate(currentDT, new Date()))
+        : TravelForm.setTime(currentDT, TravelForm.setFullDate(dt, new Date()));
+      this.setState(setLatest ? {latest: newDT} : {datetime: newDT});
 
-    if (!customLatest && !setLatest)
-      this.updateLatest(newDT, departure);
+      if (!customLatest && !setLatest)
+        this.updateLatest(newDT, departure);
+    }
   }
 
   /**
@@ -162,7 +168,7 @@ class TravelForm extends Component {
 
   render() {
     const self = this;
-    const {departure, datetime, latest, customLatest, error} = this.state;
+    const {departure, datetime, latest, customLatest, error, invalidFormat} = this.state;
     const {departureStop, arrivalStop, calculating} = this.props;
     const valid = departureStop.id !== "" && arrivalStop.id !== "";
     const message = 'Please make sure that the latest moment of departure is ';
@@ -203,6 +209,10 @@ class TravelForm extends Component {
                    content={message +
                    (departure ? 'later than the moment of departure.' : 'earlier than the moment of arrival.')}
           />
+          <Message error visible={invalidFormat}
+                   header='Invalid format'
+                   content='Please check if all the dates and time are in the right format.'
+          />
 
           <Form.Group className="inline">
             <Form.Field className="inline" width={8}>
@@ -224,7 +234,8 @@ class TravelForm extends Component {
                 <Button className="icon" onClick={this.clear} disabled={true || calculating}>
                   <Icon name="undo alternate"/>
                 </Button>
-                <Button content="Submit" className="green" onClick={this.handleSubmit} disabled={!valid || calculating}/>
+                <Button content="Submit" className="green" onClick={this.handleSubmit}
+                        disabled={!valid || calculating}/>
               </Button.Group>
             </Form.Field>
           </Form.Group>
