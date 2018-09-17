@@ -69,6 +69,7 @@ class InteractiveMap extends Component {
     this.clearLayers = this.clearLayers.bind(this);
     this.clearCalculationLines = this.clearCalculationLines.bind(this);
     this.clearAllLines = this.clearAllLines.bind(this);
+    this.clearSelectedMarkers = this.clearSelectedMarkers.bind(this);
 
     this.update = this.update.bind(this);
     this.onMapClick = this.onMapClick.bind(this);
@@ -141,10 +142,11 @@ class InteractiveMap extends Component {
     });
     window.addEventListener("submit", () => {
       this.clearAllLines();
-      map.fitBounds(selectedStops.getBounds());
+      if (Object.keys(selectedStops["_layers"]).length > 0) map.fitBounds(selectedStops.getBounds());
     });
     window.addEventListener("cancel", this.clearCalculationLines);
-    window.addEventListener("select", (event) => this.selectRoute(event.detail.routeId))
+    window.addEventListener("select", (event) => this.selectRoute(event.detail.routeId));
+    window.addEventListener("clear", this.clearSelectedMarkers);
   }
 
   /* Markers -------------------------------------------------------------------------------------------------------- */
@@ -496,6 +498,14 @@ class InteractiveMap extends Component {
     this.setState({routeLines: [], visibleLines: false});
   }
 
+  /**
+   * Deselect both the departure and arrival stops.
+   */
+  clearSelectedMarkers() {
+    this.deselectStop(true);
+    this.deselectStop(false);
+  }
+
   /* Misc. ---------------------------------------------------------------------------------------------------------- */
 
   /**
@@ -549,7 +559,7 @@ class InteractiveMap extends Component {
             </Grid.Row>
           </Grid.Column>
           <Grid.Column>
-            <Grid.Row>
+            <Grid.Row className='mapColumn'>
               <div id="mapid">
                 <Dimmer active={rendering}>
                   <Loader/>

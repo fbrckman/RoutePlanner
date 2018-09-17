@@ -65,6 +65,7 @@ class TravelHandler extends Component {
     this.id = 0;
     this.setStop = this.setStop.bind(this);
     this.setData = this.setData.bind(this);
+    TravelHandler.clearData = TravelHandler.clearData.bind(this);
     this.second = this.second.bind(this);
     this.resetTimer = this.resetTimer.bind(this);
 
@@ -183,9 +184,11 @@ class TravelHandler extends Component {
 
   selectRoute(routeId) {
     this.setState({selectedRoute: routeId});
+    console.log("routeID:", routeId);
     window.dispatchEvent(new CustomEvent("select", {
       detail: {routeId: routeId}
     }));
+    document.getElementById("mapid").scrollIntoView();
   }
 
   /* Update state ----------------------------------------------------------------------------------------------------*/
@@ -223,11 +226,16 @@ class TravelHandler extends Component {
         routes: [],
         selectedRoute: undefined
       }, () => {
+        document.getElementById("calculating").scrollIntoView(false);
         calculator.queryPlanner(province, arrivalStop.id, departureStop.id, datetime, latest, keepCalculating);
       })
     } else {
       console.error("These stops are from different provinces.");
     }
+  }
+
+  static clearData() {
+    window.dispatchEvent(new CustomEvent("clear"));
   }
 
   /**
@@ -283,6 +291,7 @@ class TravelHandler extends Component {
                       arrivalStop={arrivalStop}
                       calculating={calculating}
                       setDataCallback={this.setData}
+                      clearDataCallback={TravelHandler.clearData}
           />
         </Segment>
         <Segment>
@@ -296,7 +305,7 @@ class TravelHandler extends Component {
         </Segment>
 
         {calculating &&
-        <Segment>
+        <Segment id="calculating">
           <Grid className="middle aligned">
             <Grid.Column width={1}>
               <Button className='icon red' onClick={() => window.dispatchEvent(new CustomEvent("cancel"))}>

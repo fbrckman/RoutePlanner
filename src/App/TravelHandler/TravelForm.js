@@ -20,6 +20,7 @@ class TravelForm extends Component {
       submit: false,
       error: false,
       invalidFormat: false,
+      initialValues: true,
     };
 
     this.handleSubmit = this.handleSubmit.bind(this);
@@ -89,7 +90,7 @@ class TravelForm extends Component {
    * @param value:boolean
    */
   handleChange = (e, {name, value}) => {
-    this.setState({submit: false, [name]: value});
+    this.setState({submit: false, [name]: value, initialValues: false});
     if (!this.state.customLatest)
       this.updateLatest(this.state.datetime, value);
   };
@@ -104,7 +105,7 @@ class TravelForm extends Component {
    */
   updateLatest(newDateTime, departure) {
     const newLatest = TravelForm.addHours(newDateTime, departure ? 2 : -2);
-    this.setState({latest: newLatest});
+    this.setState({latest: newLatest, initialValues: false});
   }
 
   /**
@@ -120,7 +121,7 @@ class TravelForm extends Component {
     if (!e["_d"]) {
       this.setState({invalidFormat: true})
     } else {
-      this.setState({invalidFormat: false});
+      this.setState({invalidFormat: false, initialValues: false});
       const {departure, customLatest, latest, datetime} = this.state;
       this.setState({submit: false});
       const dt = e["_d"];
@@ -152,9 +153,11 @@ class TravelForm extends Component {
     } else {
       console.log("[ERROR] See form.");
     }
+    return false;
   };
 
   clear() {
+    const {clearDataCallback} = this.props;
     const now = new Date();
     this.setState({
       datetime: now,
@@ -164,13 +167,16 @@ class TravelForm extends Component {
       submit: false,
       error: false,
     });
+    clearDataCallback();
+    return false;
   }
 
   render() {
     const self = this;
-    const {departure, datetime, latest, customLatest, error, invalidFormat} = this.state;
+    const {departure, datetime, latest, customLatest, error, invalidFormat, initialValues} = this.state;
     const {departureStop, arrivalStop, calculating} = this.props;
-    const valid = departureStop.id !== "" && arrivalStop.id !== "";
+    const valid = departureStop.id !== "" && arrivalStop.id !== "",
+          initial = initialValues && departureStop.id === "" && arrivalStop.id === "";
     const message = 'Please make sure that the latest moment of departure is ';
 
     // TODO internationalization
@@ -231,7 +237,7 @@ class TravelForm extends Component {
             <Form.Field width={13}/>
             <Form.Field width={3}>
               <Button.Group>
-                <Button className="icon" onClick={this.clear} disabled={true || calculating}>
+                <Button className="icon" onClick={this.clear} disabled={initial || calculating}>
                   <Icon name="undo alternate"/>
                 </Button>
                 <Button content="Submit" className="green" onClick={this.handleSubmit}
