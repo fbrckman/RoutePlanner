@@ -40,7 +40,6 @@ class InteractiveMap extends Component {
   constructor() {
     super();
     this.state = {
-      fetching: true,
       rendering: false,
       markers: {},
       markerLayer: L.markerClusterGroup(),
@@ -76,9 +75,7 @@ class InteractiveMap extends Component {
   }
 
   componentDidMount() {
-    const self = this;
-    const {markerLayer, nmbs, selectedStops} = this.state;
-    const {provinces, stations} = this.props;
+    const {markerLayer, selectedStops} = this.state;
 
     // Setup the map
     const map = L.map('mapid').setView([50.85, 4.35, 5.2], 8);
@@ -90,50 +87,12 @@ class InteractiveMap extends Component {
     L.tileLayer('https://{s}.tile.thunderforest.com/transport/{z}/{x}/{y}.png?apikey=f2488a35b11044e4844692095875c9ce', {
       attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(map);
-
-    // NMBS
-    window.fetch("https://irail.be/stations/NMBS", {headers: {'accept': 'application/ld+json'}}).then(function (response) {
-      return response.json();
-    }).then(function (stationsNMBS) {
-      stationsNMBS["@graph"].forEach(function (station) {
-        const key = station["@id"];
-        nmbs.stops.add(key);
-        station.point = new L.LatLng(station.latitude, station.longitude);
-        stations[key] = station;
-      });
-
-      // Keeping track of the number of fetched provinces
-      let fetched = 0;
-
-      // De Lijn
-      for (let province of Object.keys(provinces)) {
-        window.fetch(provinces[province].stopsUrl).then(function (response) {
-          return response.json();
-        }).then(function (stopsDeLijn) {
-          // console.log(province, "fetched");
-          stopsDeLijn["@graph"].forEach(function (stop) {
-            const key = stop["@id"];
-            provinces[province].stops.add(key);
-            stop.point = new L.LatLng(stop.latitude, stop.longitude);
-            stop.province = province;
-            stations[key] = stop;
-          });
-
-          // FIXME this part causes the no-loop-func warning
-          // Keep the checkboxes in a fetching state while the data is fetching
-          fetched += 1;
-          if (fetched === Object.keys(provinces).length) {
-            self.setState({fetching: false});
-            self.update(province);
-          }
-        });
-      }
-    }).catch(function (ex) {
-      console.error(ex);
-    });
-
     map.addLayer(markerLayer);
 
+    // EventListeners
+    window.addEventListener("update", (event) => {
+      this.update(event.detail.province);
+    });
     window.addEventListener("connection", (event) => {
       this.drawConnection(event.detail.connection);
     });
@@ -172,8 +131,8 @@ class InteractiveMap extends Component {
    * @param province
    */
   renderMarkers(province) {
-    const {markers, nmbs} = this.state;
-    const {stations} = this.props;
+    const {markers} = this.state;
+    const {stations, nmbs} = this.props;
     const p = province !== undefined;
     const group = L.layerGroup();
 
@@ -206,8 +165,8 @@ class InteractiveMap extends Component {
    * @param callback
    */
   showProvinces(props, provinceName, callback) {
-    const {nmbs, markerLayer} = this.state;
-    const {provinces} = props;
+    const {markerLayer} = this.state;
+    const {provinces, nmbs} = props;
     let p = provinces[provinceName], source = p;
     if (p === undefined) { // NMBS
       source = undefined;
@@ -230,6 +189,10 @@ class InteractiveMap extends Component {
 
   /* Polylines  ----------------------------------------------------------------------------------------------------- */
 
+  /**
+   * Bring the specified layer to the front
+   * @param layers:featureGroup
+   */
   static bringToFront(layers) {
     layers = layers["_layers"];
     if (layers && Object.keys(layers).length > 0) {
@@ -242,6 +205,11 @@ class InteractiveMap extends Component {
     }
   }
 
+  /**
+   * Make the segments of the given layer colorful.
+   * @param layers:featureGroup
+   * @param color:boolean, true if the layers should be colorful, false if they should be grey
+   */
   setColor(layers, color=true) {
     layers = layers["_layers"];
     if (layers && Object.keys(layers).length > 0) {
@@ -288,6 +256,7 @@ class InteractiveMap extends Component {
       const {lines, map} = this.state;
       lines.addLayer(polyline);
       map.addLayer(polyline);
+      polyline.bringToBack();
     }
   }
 
@@ -324,6 +293,11 @@ class InteractiveMap extends Component {
     this.selectRoute(group.routeId);
   }
 
+  /**
+   * Make the selected route colorful and make the other routes grey.
+   * Bring the segments of the selected route to the front.
+   * @param routeId:number, ID of the selected route
+   */
   selectRoute(routeId) {
     for (const route of this.state.routeLines) {
       this.setColor(route, route.routeId === routeId);
@@ -542,8 +516,8 @@ class InteractiveMap extends Component {
   /* Render --------------------------------------------------------------------------------------------------------- */
 
   render() {
-    const {nmbs, rendering, fetching, visibleLines} = this.state;
-    const {provinces, calculating} = this.props;
+    const {rendering, visibleLines} = this.state;
+    const {provinces, calculating, fetching, nmbs} = this.props;
     return (
       <div>
         <Grid divided columns='equal'>
