@@ -10,7 +10,7 @@ class RouteView extends Component {
     if (routes && routes.length > 0) {
       return routes.map(function (route) {
         const start = route.trips[0], end = route.trips[route.trips.length - 1];
-        const diff = moment.duration(moment(end).diff(moment(start)));
+        const diff = moment.duration(moment(end.departureTime).diff(moment(start.arrivalTime)));
         return (
           <Segment key={'route' + routes.indexOf(route)} onClick={() => selectRouteCallback(route.routeId)}
                    secondary={selected !== route.routeId}>
