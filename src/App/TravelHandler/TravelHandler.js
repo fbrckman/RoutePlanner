@@ -119,7 +119,7 @@ class TravelHandler extends Component {
     }
   }
 
-  static streamEndCallback(self) {
+  static streamEndCallback() {
     window.dispatchEvent(new CustomEvent("cancel"));
   }
 
