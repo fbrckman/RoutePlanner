@@ -228,6 +228,18 @@ class InteractiveMap extends Component {
 
   /* Polylines  ----------------------------------------------------------------------------------------------------- */
 
+  static bringToFront(layers) {
+    layers = layers["_layers"];
+    if (layers && Object.keys(layers).length > 0) {
+      for (const l in layers) {
+        if (layers.hasOwnProperty(l)) {
+          const layer = layers[l];
+          layer.bringToFront();
+        }
+      }
+    }
+  }
+
   setColor(layers, color=true) {
     layers = layers["_layers"];
     if (layers && Object.keys(layers).length > 0) {
@@ -285,11 +297,11 @@ class InteractiveMap extends Component {
    * A popup with the name of the routeLines will open on mousover.
    *
    * @param connections: array with connection objects
+   * @param routeId:number, id of the route
    * @param lastResult:boolean, true if this is the last calculated resulted
    */
   drawResult(connections, routeId, lastResult) {
     const {routeLines, map} = this.state;
-    console.log(connections);
     if (lastResult) this.clearCalculationLines();
     const group = L.featureGroup();
 
@@ -297,6 +309,7 @@ class InteractiveMap extends Component {
       const polyline = this.drawPolyline(c, c.color, 4);
       if (polyline) {
         const name = c["http://vocab.gtfs.org/terms#headsign"].replace(/"/g, "");
+        polyline.color = c.color;
         polyline.bindPopup(name);
         polyline.on("mouseover", () => polyline.openPopup());
         group.addLayer(polyline);
@@ -305,15 +318,14 @@ class InteractiveMap extends Component {
     }
     group.routeId = routeId;
     routeLines.push(group);
-    console.log("routeLines:", routeLines);
     map.fitBounds(group.getBounds());
-    this.selectRoute(group);
+    this.selectRoute(group.routeId);
   }
 
-  selectRoute(result) {
-    console.log("selectRoute");
+  selectRoute(routeId) {
     for (const route of this.state.routeLines) {
-      this.setColor(route, route.routeId === result.routeId);
+      this.setColor(route, route.routeId === routeId);
+      if (route.routeId === routeId) InteractiveMap.bringToFront(route);
     }
   }
 

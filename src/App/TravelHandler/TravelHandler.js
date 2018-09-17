@@ -98,10 +98,10 @@ class TravelHandler extends Component {
   /**
    * Dispatch an event with the given result
    * @param result:array of connections
+   * @param routeId:number, id of the given route
    * @param keepCalculating:boolean, true if the calculator should continue after the first result
    */
   static handleResult(result, routeId, keepCalculating) {
-    console.log(result, routeId);
     window.dispatchEvent(new CustomEvent("result", {
       detail: {
         result: result,
@@ -132,7 +132,6 @@ class TravelHandler extends Component {
    * @param keepCalculating:boolean, true if the Calculator will keep calculating routes
    */
   static finishCalculating(self, result, keepCalculating) {
-    console.log("Result:", result);
     if (!keepCalculating) {
       console.log("Finish calculating...");
       self.setState({calculating: false});
@@ -153,7 +152,6 @@ class TravelHandler extends Component {
       connection.departureStopName = stations[connection.departureStop].name;
     }
 
-    console.log("Applied colors");
     const routeUrl = "http://vocab.gtfs.org/terms#routeLines", signUrl = "http://vocab.gtfs.org/terms#headsign";
     const parsedResult = [TravelHandler.cloneConnection(result[0])];
     let lastConnection = parsedResult[0];
@@ -171,7 +169,6 @@ class TravelHandler extends Component {
       }
     }
 
-    console.log("Parsed result");
     const routeId = self.id;
     self.id += 1;
     const parsedRoute = {
@@ -180,12 +177,12 @@ class TravelHandler extends Component {
     };
 
     self.setState({routes: [...self.state.routes, parsedRoute]});
-    this.selectRoute(result);
-    console.log("Result:", result);
     TravelHandler.handleResult(result, routeId, keepCalculating);
+    self.selectRoute(routeId);
   }
 
   selectRoute(routeId) {
+    console.log("Select route:", routeId);
     this.setState({selectedRoute: routeId});
     window.dispatchEvent(new CustomEvent("select", {
       detail: {routeId: routeId}
