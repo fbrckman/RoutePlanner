@@ -69,7 +69,7 @@ class Calculator {
       });
 
       resultStream.on('end', () => {
-        self.streamEndCallback(self.handler);
+        self.streamEndCallback();
         console.log("--- Stream ended ---");
       });
 
